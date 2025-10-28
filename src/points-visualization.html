@@ -63,6 +63,24 @@
       label {
         cursor: pointer;
       }
+      input[type="range"] {
+        width: 150px;
+      }
+      .slider-container {
+        margin: 8px 0;
+      }
+      .slider-label {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 11px;
+      }
+      .slider-value {
+        display: inline-block;
+        min-width: 30px;
+        text-align: right;
+        margin-left: 5px;
+        font-size: 11px;
+      }
     </style>
   </head>
   <body>
@@ -99,6 +117,26 @@
         <option value="ZXY">ZXY</option>
         <option value="ZYX">ZYX</option>
       </select>
+      <div class="slider-container">
+        <span class="slider-label">Velikost bodů:</span>
+        <input type="range" id="pointSize" min="5" max="50" value="15" step="1" />
+        <span class="slider-value" id="pointSizeValue">15</span>
+      </div>
+      <div class="slider-container">
+        <span class="slider-label">Velikost osových křížů:</span>
+        <input type="range" id="axesSize" min="10" max="200" value="50" step="5" />
+        <span class="slider-value" id="axesSizeValue">50</span>
+      </div>
+      <div class="slider-container">
+        <span class="slider-label">Transparentnost osových křížů:</span>
+        <input type="range" id="axesOpacity" min="0" max="100" value="60" step="5" />
+        <span class="slider-value" id="axesOpacityValue">0.60</span>
+      </div>
+      <br />
+      <label>
+        <input type="checkbox" id="darkMode" checked />
+        Tmavý režim
+      </label>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -117,6 +155,10 @@
       let rotationOrder = "XYZ";
       let csvData = null;
       let lastHoveredIndex = null;
+      let pointSize = 15;
+      let axesSize = 50;
+      let axesOpacity = 0.6;
+      let isDarkMode = true;
 
       // Pro animaci přesunu kamery
       let isAnimating = false;
@@ -200,8 +242,109 @@
         document
           .getElementById("rotationOrder")
           .addEventListener("change", changeRotationOrder);
+        document
+          .getElementById("pointSize")
+          .addEventListener("input", updatePointSize);
+        document
+          .getElementById("axesSize")
+          .addEventListener("input", updateAxesSize);
+        document
+          .getElementById("axesOpacity")
+          .addEventListener("input", updateAxesOpacity);
+        document
+          .getElementById("darkMode")
+          .addEventListener("change", toggleDarkMode);
 
         animate();
+      }
+
+      function updatePointSize() {
+        pointSize = parseInt(document.getElementById("pointSize").value);
+        document.getElementById("pointSizeValue").textContent = pointSize;
+
+        // Aktualizovat velikost bodů v point cloud
+        if (pointObjects.length > 0) {
+          pointObjects.forEach((pointCloud) => {
+            pointCloud.material.size = pointSize;
+            pointCloud.material.needsUpdate = true;
+          });
+        }
+      }
+
+      function updateAxesSize() {
+        axesSize = parseInt(document.getElementById("axesSize").value);
+        document.getElementById("axesSizeValue").textContent = axesSize;
+
+        // Překreslit všechny osové kříže s novou velikostí
+        if (csvData) {
+          if (showAxesMode) {
+            displayAllAxes();
+          } else if (lastHoveredIndex !== null) {
+            showHoverAxes(lastHoveredIndex);
+          }
+        }
+      }
+
+      function updateAxesOpacity() {
+        const opacityValue = parseInt(document.getElementById("axesOpacity").value);
+        axesOpacity = opacityValue / 100; // Převést z 0-100 na 0-1
+        document.getElementById("axesOpacityValue").textContent = axesOpacity.toFixed(2);
+
+        // Překreslit všechny osové kříže s novou transparentností
+        if (csvData) {
+          if (showAxesMode) {
+            displayAllAxes();
+          } else if (lastHoveredIndex !== null) {
+            showHoverAxes(lastHoveredIndex);
+          }
+        }
+      }
+
+      function toggleDarkMode() {
+        isDarkMode = document.getElementById("darkMode").checked;
+
+        if (isDarkMode) {
+          // Tmavý režim
+          scene.background = new THREE.Color(0x1a1a1a);
+        } else {
+          // Světlý režim
+          scene.background = new THREE.Color(0xe8e8e8);
+        }
+
+        // Překreslit body s novými barvami podle režimu
+        if (csvData) {
+          updatePointColors();
+        }
+      }
+
+      function updatePointColors() {
+        if (pointObjects.length > 0 && csvData) {
+          const colors = [];
+
+          csvData.forEach((row) => {
+            const y = parseFloat(row.p_z); // Výška
+
+            // Barva bodů podle režimu
+            const color = new THREE.Color();
+            if (isDarkMode) {
+              // Tmavý režim - modrá s gradientem podle výšky
+              const hue = 0.6 + (y / 2000) * 0.2;
+              color.setHSL(hue, 1.0, 0.6);
+            } else {
+              // Světlý režim - tmavomodrá s gradientem
+              const hue = 0.6 + (y / 2000) * 0.2;
+              color.setHSL(hue, 0.8, 0.4);
+            }
+            colors.push(color.r, color.g, color.b);
+          });
+
+          // Aktualizovat barvy v geometrii
+          pointObjects[0].geometry.setAttribute(
+            "color",
+            new THREE.Float32BufferAttribute(colors, 3)
+          );
+          pointObjects[0].geometry.attributes.color.needsUpdate = true;
+        }
       }
 
       function changeRotationOrder() {
@@ -252,9 +395,12 @@
         }
       }
 
-      function createAxesHelper(position, rotation, size = 50) {
+      function createAxesHelper(position, rotation, customSize = null) {
         // Vytvoření skupiny pro osový kříž
         const axesGroup = new THREE.Group();
+
+        // Použít custom velikost nebo globální proměnnou
+        const size = customSize !== null ? customSize : axesSize;
 
         // Vytvoření šipek pro osy X, Y, Z
         const axisLength = size;
@@ -290,6 +436,14 @@
           headLength,
           headWidth
         );
+
+        // Nastavit transparentnost pro všechny osy
+        [xAxis, yAxis, zAxis].forEach((axis) => {
+          axis.line.material.transparent = true;
+          axis.line.material.opacity = axesOpacity;
+          axis.cone.material.transparent = true;
+          axis.cone.material.opacity = axesOpacity;
+        });
 
         axesGroup.add(xAxis);
         axesGroup.add(yAxis);
@@ -369,8 +523,7 @@
 
           hoverAxesHelper = createAxesHelper(
             position,
-            new THREE.Vector3(rotation.x, rotation.y, rotation.z),
-            60
+            new THREE.Vector3(rotation.x, rotation.y, rotation.z)
           );
           scene.add(hoverAxesHelper);
         }
@@ -421,10 +574,16 @@
 
           positions.push(x, y, z);
 
-          // Barva bodů (modrá s gradientem podle výšky)
+          // Barva bodů podle režimu
           const color = new THREE.Color();
           const hue = 0.6 + (y / 2000) * 0.2; // Odstín podle výšky
-          color.setHSL(hue, 1.0, 0.6);
+          if (isDarkMode) {
+            // Tmavý režim - světlejší modrá
+            color.setHSL(hue, 1.0, 0.6);
+          } else {
+            // Světlý režim - tmavší modrá
+            color.setHSL(hue, 0.8, 0.4);
+          }
           colors.push(color.r, color.g, color.b);
 
           points.push({
@@ -443,7 +602,7 @@
         );
 
         const material = new THREE.PointsMaterial({
-          size: 15,
+          size: pointSize,
           vertexColors: true,
           sizeAttenuation: true,
         });
