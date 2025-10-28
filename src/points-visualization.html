@@ -144,7 +144,7 @@
         style="color: #7171fc"
         >Created by Michal Šára</a
       >
-      | v1.0.4
+      | v1.0.5
     </div>
     <div id="controls" class="panel">
       <div class="panel-header" onclick="togglePanel('controls')">
@@ -441,6 +441,10 @@
       let pivotMarkerFadeStart = null;
       let pivotMarkerFadeDuration = 3000; // 5 sekund
 
+      // Throttling pro mouse move
+      let mouseMoveThrottleTimeout = null;
+      let lastMousePosition = { x: 0, y: 0 };
+
       // Language switching function
       function switchLanguage() {
         currentLanguage = currentLanguage === "cs" ? "en" : "cs";
@@ -618,11 +622,8 @@
         }
       }
 
-      function updateAxesSize() {
-        axesSize = parseInt(document.getElementById("axesSize").value);
-        document.getElementById("axesSizeValue").textContent = axesSize;
-
-        // Překreslit všechny osové kříže s novou velikostí
+      // Helper function to refresh axes display
+      function refreshAxes() {
         if (csvData) {
           if (showAxesMode) {
             displayAllAxes();
@@ -630,6 +631,14 @@
             showHoverAxes(lastHoveredIndex);
           }
         }
+      }
+
+      function updateAxesSize() {
+        axesSize = parseInt(document.getElementById("axesSize").value);
+        document.getElementById("axesSizeValue").textContent = axesSize;
+
+        // Překreslit všechny osové kříže s novou velikostí
+        refreshAxes();
       }
 
       function updateAxesOpacity() {
@@ -640,13 +649,32 @@
         document.getElementById("axesOpacityValue").textContent =
           axesOpacity.toFixed(2);
 
-        // Překreslit všechny osové kříže s novou transparentností
-        if (csvData) {
-          if (showAxesMode) {
-            displayAllAxes();
-          } else if (lastHoveredIndex !== null) {
-            showHoverAxes(lastHoveredIndex);
-          }
+        // Update opacity on existing axes without recreating them
+        axesObjects.forEach(axesGroup => {
+          axesGroup.children.forEach(arrow => {
+            if (arrow.line) {
+              arrow.line.material.opacity = axesOpacity;
+              arrow.line.material.needsUpdate = true;
+            }
+            if (arrow.cone) {
+              arrow.cone.material.opacity = axesOpacity;
+              arrow.cone.material.needsUpdate = true;
+            }
+          });
+        });
+
+        // Update hover axes if visible
+        if (hoverAxesHelper) {
+          hoverAxesHelper.children.forEach(arrow => {
+            if (arrow.line) {
+              arrow.line.material.opacity = axesOpacity;
+              arrow.line.material.needsUpdate = true;
+            }
+            if (arrow.cone) {
+              arrow.cone.material.opacity = axesOpacity;
+              arrow.cone.material.needsUpdate = true;
+            }
+          });
         }
       }
 
@@ -678,13 +706,7 @@
         showAxisZ = document.getElementById("showAxisZ").checked;
 
         // Překreslit všechny osové kříže s novou viditelností
-        if (csvData) {
-          if (showAxesMode) {
-            displayAllAxes();
-          } else if (lastHoveredIndex !== null) {
-            showHoverAxes(lastHoveredIndex);
-          }
-        }
+        refreshAxes();
       }
 
       function updateAxisFlip() {
@@ -693,13 +715,23 @@
         flipAxisZ = document.getElementById("flipAxisZ").checked;
 
         // Překreslit všechny osové kříže s novým otočením
-        if (csvData) {
-          if (showAxesMode) {
-            displayAllAxes();
-          } else if (lastHoveredIndex !== null) {
-            showHoverAxes(lastHoveredIndex);
-          }
+        refreshAxes();
+      }
+
+      // Helper function to calculate point color based on Y position
+      function calculatePointColor(y) {
+        const color = new THREE.Color();
+        const hue = 0.6 + (y / 2000) * 0.2; // Odstín podle výšky
+
+        if (isDarkMode) {
+          // Tmavý režim - světlejší modrá
+          color.setHSL(hue, 1.0, 0.6);
+        } else {
+          // Světlý režim - tmavší modrá
+          color.setHSL(hue, 0.8, 0.4);
         }
+
+        return color;
       }
 
       function updatePointColors() {
@@ -707,19 +739,8 @@
           const colors = [];
 
           csvData.forEach((row) => {
-            const y = parseFloat(row.p_y); // Výška
-
-            // Barva bodů podle režimu
-            const color = new THREE.Color();
-            if (isDarkMode) {
-              // Tmavý režim - modrá s gradientem podle výšky
-              const hue = 0.6 + (y / 2000) * 0.2;
-              color.setHSL(hue, 1.0, 0.6);
-            } else {
-              // Světlý režim - tmavomodrá s gradientem
-              const hue = 0.6 + (y / 2000) * 0.2;
-              color.setHSL(hue, 0.8, 0.4);
-            }
+            const y = parseFloat(row.p_y);
+            const color = calculatePointColor(y);
             colors.push(color.r, color.g, color.b);
           });
 
@@ -736,13 +757,7 @@
         rotationOrder = document.getElementById("rotationOrder").value;
 
         // Překreslit osové kříže s novým pořadím rotací
-        if (csvData) {
-          if (showAxesMode) {
-            displayAllAxes();
-          } else if (lastHoveredIndex !== null) {
-            showHoverAxes(lastHoveredIndex);
-          }
-        }
+        refreshAxes();
       }
 
       function degreesToRadians(degrees) {
@@ -771,13 +786,7 @@
         useRadians = document.getElementById("useRadians").checked;
 
         // Překreslit všechny osové kříže s novým přepočtem
-        if (csvData) {
-          if (showAxesMode) {
-            displayAllAxes();
-          } else if (lastHoveredIndex !== null) {
-            showHoverAxes(lastHoveredIndex);
-          }
-        }
+        refreshAxes();
       }
 
       function createAxesHelper(position, rotation, customSize = null) {
@@ -1009,178 +1018,313 @@
       }
 
       function parseCSV(text) {
-        const lines = text.trim().split("\n");
-        const headers = lines[0].split(",");
-        const data = [];
+        try {
+          // Handle different line endings (CRLF, LF) and filter empty lines
+          const lines = text.trim().split(/\r?\n/).filter(line => line.trim());
 
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(",");
-          const obj = {};
-          headers.forEach((header, index) => {
-            obj[header.trim()] = values[index];
-          });
-          data.push(obj);
+          if (lines.length === 0) {
+            throw new Error("CSV file is empty");
+          }
+
+          const headers = lines[0].split(',').map(h => h.trim());
+
+          // Validate required columns (only position columns are required)
+          const requiredColumns = ['name', 'p_x', 'p_y', 'p_z'];
+          const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+
+          if (missingColumns.length > 0) {
+            throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
+          }
+
+          // Check for optional rotation columns
+          const optionalColumns = ['r_x', 'r_y', 'r_z'];
+          const missingRotationColumns = optionalColumns.filter(col => !headers.includes(col));
+          const hasRotationData = missingRotationColumns.length === 0;
+
+          // Show warning if rotation columns are missing
+          if (missingRotationColumns.length > 0) {
+            console.warn(`Optional rotation columns missing: ${missingRotationColumns.join(', ')}. Points will have no rotation.`);
+          }
+
+          const data = [];
+
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue; // Skip empty lines
+
+            const values = line.split(',');
+
+            // Skip malformed rows (wrong number of columns)
+            if (values.length !== headers.length) {
+              console.warn(`Row ${i} has ${values.length} columns, expected ${headers.length}. Skipping.`);
+              continue;
+            }
+
+            const obj = {};
+            headers.forEach((header, index) => {
+              obj[header] = values[index]?.trim() || '';
+            });
+
+            // Set default rotation values if missing
+            if (!obj.r_x) obj.r_x = '0';
+            if (!obj.r_y) obj.r_y = '0';
+            if (!obj.r_z) obj.r_z = '0';
+
+            // Validate numeric values for position (required)
+            const requiredNumericFields = ['p_x', 'p_y', 'p_z'];
+            let isValid = true;
+
+            for (const field of requiredNumericFields) {
+              const value = parseFloat(obj[field]);
+              if (isNaN(value)) {
+                console.warn(`Row ${i}: Invalid numeric value for ${field}: "${obj[field]}". Skipping.`);
+                isValid = false;
+                break;
+              }
+            }
+
+            // Validate rotation values if they exist
+            if (isValid && hasRotationData) {
+              const rotationFields = ['r_x', 'r_y', 'r_z'];
+              for (const field of rotationFields) {
+                const value = parseFloat(obj[field]);
+                if (isNaN(value)) {
+                  console.warn(`Row ${i}: Invalid numeric value for ${field}: "${obj[field]}". Using 0.`);
+                  obj[field] = '0';
+                }
+              }
+            }
+
+            if (isValid) {
+              data.push(obj);
+            }
+          }
+
+          if (data.length === 0) {
+            throw new Error("No valid data rows found in CSV");
+          }
+
+          // Return data with metadata about rotation columns
+          return {
+            data: data,
+            hasRotationData: hasRotationData,
+            missingRotationColumns: missingRotationColumns
+          };
+        } catch (error) {
+          console.error("CSV parsing error:", error);
+          throw error;
         }
-
-        return data;
       }
 
       function loadPoints(data) {
-        csvData = data;
+        try {
+          csvData = data;
 
-        // Vymazat předchozí body
-        pointObjects.forEach((obj) => scene.remove(obj));
-        pointObjects = [];
-        points = [];
-        hideAllAxes();
-        hideHoverAxes();
-        hideAllLabels();
+          // Vymazat předchozí body
+          pointObjects.forEach((obj) => scene.remove(obj));
+          pointObjects = [];
+          points = [];
+          hideAllAxes();
+          hideHoverAxes();
+          hideAllLabels();
 
-        const geometry = new THREE.BufferGeometry();
-        const positions = [];
-        const colors = [];
+          const geometry = new THREE.BufferGeometry();
+          const positions = [];
+          const colors = [];
 
-        csvData.forEach((row) => {
-          const x = parseFloat(row.p_x);
-          const y = parseFloat(row.p_y);
-          const z = parseFloat(row.p_z);
+          csvData.forEach((row) => {
+            const x = parseFloat(row.p_x);
+            const y = parseFloat(row.p_y);
+            const z = parseFloat(row.p_z);
 
-          positions.push(x, y, z);
+            positions.push(x, y, z);
 
-          // Barva bodů podle režimu
-          const color = new THREE.Color();
-          const hue = 0.6 + (y / 2000) * 0.2; // Odstín podle výšky
-          if (isDarkMode) {
-            // Tmavý režim - světlejší modrá
-            color.setHSL(hue, 1.0, 0.6);
-          } else {
-            // Světlý režim - tmavší modrá
-            color.setHSL(hue, 0.8, 0.4);
-          }
-          colors.push(color.r, color.g, color.b);
+            // Barva bodů podle režimu
+            const color = calculatePointColor(y);
+            colors.push(color.r, color.g, color.b);
 
-          points.push({
-            name: row.name,
-            position: new THREE.Vector3(x, y, z),
+            points.push({
+              name: row.name,
+              position: new THREE.Vector3(x, y, z),
+            });
           });
-        });
 
-        geometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(positions, 3)
-        );
-        geometry.setAttribute(
-          "color",
-          new THREE.Float32BufferAttribute(colors, 3)
-        );
+          geometry.setAttribute(
+            "position",
+            new THREE.Float32BufferAttribute(positions, 3)
+          );
+          geometry.setAttribute(
+            "color",
+            new THREE.Float32BufferAttribute(colors, 3)
+          );
 
-        const material = new THREE.PointsMaterial({
-          size: pointSize,
-          vertexColors: true,
-          sizeAttenuation: true,
-        });
+          const material = new THREE.PointsMaterial({
+            size: pointSize,
+            vertexColors: true,
+            sizeAttenuation: true,
+          });
 
-        const pointCloud = new THREE.Points(geometry, material);
-        scene.add(pointCloud);
-        pointObjects.push(pointCloud);
+          const pointCloud = new THREE.Points(geometry, material);
+          scene.add(pointCloud);
+          pointObjects.push(pointCloud);
 
-        // Vycentrovat kameru
-        const box = new THREE.Box3().setFromObject(pointCloud);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = camera.fov * (Math.PI / 180);
-        let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-        cameraZ *= 1.5;
+          // Vycentrovat kameru
+          const box = new THREE.Box3().setFromObject(pointCloud);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const fov = camera.fov * (Math.PI / 180);
+          let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+          cameraZ *= 1.5;
 
-        camera.position.set(
-          center.x + cameraZ,
-          center.y + cameraZ,
-          center.z + cameraZ
-        );
-        camera.lookAt(center);
-        controls.target.copy(center);
-        controls.update();
+          camera.position.set(
+            center.x + cameraZ,
+            center.y + cameraZ,
+            center.z + cameraZ
+          );
+          camera.lookAt(center);
+          controls.target.copy(center);
+          controls.update();
 
-        const loadedText = translations[currentLanguage].status.loaded.replace(
-          "{count}",
-          points.length
-        );
-        document.getElementById("status").textContent = loadedText;
+          const loadedText = translations[currentLanguage].status.loaded.replace(
+            "{count}",
+            points.length
+          );
+          document.getElementById("status").textContent = loadedText;
 
-        // Pokud je zapnutý režim osových křížů, zobrazit je
-        if (showAxesMode) {
-          displayAllAxes();
-        }
+          // Pokud je zapnutý režim osových křížů, zobrazit je
+          if (showAxesMode) {
+            displayAllAxes();
+          }
 
-        // Pokud je zapnutý režim labelů, zobrazit je
-        if (showLabelsMode) {
-          displayAllLabels();
+          // Pokud je zapnutý režim labelů, zobrazit je
+          if (showLabelsMode) {
+            displayAllLabels();
+          }
+        } catch (error) {
+          console.error('Error loading points:', error);
+          alert(`Error displaying points: ${error.message}`);
+          // Reset state on error
+          csvData = null;
+          pointObjects = [];
+          points = [];
         }
       }
 
       function handleFileSelect(event) {
         const file = event.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function (e) {
-            const csvData = parseCSV(e.target.result);
-            loadPoints(csvData);
-          };
-          reader.readAsText(file);
+        if (!file) return;
+
+        // Validate file type
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+          alert('Error: Please select a CSV file (.csv)');
+          event.target.value = ''; // Reset file input
+          return;
         }
+
+        // Validate file size (max 10MB)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+          alert('Error: File is too large. Maximum size is 10MB.');
+          event.target.value = ''; // Reset file input
+          return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onerror = function() {
+          alert('Error: Failed to read file. Please try again.');
+          event.target.value = ''; // Reset file input
+        };
+
+        reader.onload = function (e) {
+          try {
+            const result = parseCSV(e.target.result);
+
+            // Show warning if rotation columns are missing
+            if (!result.hasRotationData) {
+              const missingCols = result.missingRotationColumns.join(', ');
+              const warningMsg = currentLanguage === 'cs'
+                ? `Varování: Chybí volitelné sloupce pro rotaci: ${missingCols}\nBody budou zobrazeny bez dáné rotace s 0°.`
+                : `Warning: Optional rotation columns missing: ${missingCols}\nPoints will be displayed without rotation with 0°.`;
+              alert(warningMsg);
+            }
+
+            loadPoints(result.data);
+          } catch (error) {
+            const errorMsg = currentLanguage === 'cs'
+              ? `Chyba při načítání CSV: ${error.message}\n\nPovinný formát:\nname,p_x,p_y,p_z\n\nVolitelné sloupce:\nr_x,r_y,r_z`
+              : `Error loading CSV: ${error.message}\n\nRequired format:\nname,p_x,p_y,p_z\n\nOptional columns:\nr_x,r_y,r_z`;
+            alert(errorMsg);
+            event.target.value = ''; // Reset file input
+            console.error('CSV loading error:', error);
+          }
+        };
+
+        reader.readAsText(file);
       }
 
       function onMouseMove(event) {
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        // Update mouse position for raycasting
+        lastMousePosition.x = event.clientX;
+        lastMousePosition.y = event.clientY;
 
-        raycaster.setFromCamera(mouse, camera);
+        // Throttle raycasting to ~60fps
+        if (mouseMoveThrottleTimeout) return;
 
-        if (pointObjects.length > 0) {
-          const intersects = raycaster.intersectObjects(pointObjects);
+        mouseMoveThrottleTimeout = setTimeout(() => {
+          mouseMoveThrottleTimeout = null;
 
-          if (intersects.length > 0) {
-            const intersect = intersects[0];
-            const index = intersect.index;
+          mouse.x = (lastMousePosition.x / window.innerWidth) * 2 - 1;
+          mouse.y = -(lastMousePosition.y / window.innerHeight) * 2 + 1;
 
-            if (index !== undefined && points[index]) {
-              const point = points[index];
-              const x = point.position.x.toFixed(2);
-              const y = point.position.y.toFixed(2);
-              const z = point.position.z.toFixed(2);
+          raycaster.setFromCamera(mouse, camera);
 
-              // Získat rotace z CSV dat
-              const row = csvData[index];
-              const rx = parseFloat(row.r_x).toFixed(2);
-              const ry = parseFloat(row.r_y).toFixed(2);
-              const rz = parseFloat(row.r_z).toFixed(2);
-              const angleUnit = useRadians ? "rad" : "°";
+          if (pointObjects.length > 0) {
+            const intersects = raycaster.intersectObjects(pointObjects);
 
-              const pointLabel = translations[currentLanguage].status.point;
-              document.getElementById(
-                "status"
-              ).textContent = `${pointLabel} ${point.name} | [${x}, ${y}, ${z}, ${rx}${angleUnit}, ${ry}${angleUnit}, ${rz}${angleUnit}]`;
-              document.body.style.cursor = "pointer";
+            if (intersects.length > 0) {
+              const intersect = intersects[0];
+              const index = intersect.index;
 
-              // Zobrazit osový kříž při hoveru (pouze když není zapnutý režim všech křížů)
-              if (!showAxesMode && lastHoveredIndex !== index) {
-                showHoverAxes(index);
-                lastHoveredIndex = index;
+              if (index !== undefined && points[index]) {
+                const point = points[index];
+                const x = point.position.x.toFixed(2);
+                const y = point.position.y.toFixed(2);
+                const z = point.position.z.toFixed(2);
+
+                // Získat rotace z CSV dat
+                const row = csvData[index];
+                const rx = parseFloat(row.r_x).toFixed(2);
+                const ry = parseFloat(row.r_y).toFixed(2);
+                const rz = parseFloat(row.r_z).toFixed(2);
+                const angleUnit = useRadians ? "rad" : "°";
+
+                const pointLabel = translations[currentLanguage].status.point;
+                document.getElementById(
+                  "status"
+                ).textContent = `${pointLabel} ${point.name} | [${x}, ${y}, ${z}, ${rx}${angleUnit}, ${ry}${angleUnit}, ${rz}${angleUnit}]`;
+                document.body.style.cursor = "pointer";
+
+                // Zobrazit osový kříž při hoveru (pouze když není zapnutý režim všech křížů)
+                if (!showAxesMode && lastHoveredIndex !== index) {
+                  showHoverAxes(index);
+                  lastHoveredIndex = index;
+                }
+              }
+            } else {
+              document.getElementById("status").textContent =
+                translations[currentLanguage].status.hover;
+              document.body.style.cursor = "default";
+
+              // Skrýt hover osový kříž
+              if (!showAxesMode) {
+                hideHoverAxes();
+                lastHoveredIndex = null;
               }
             }
-          } else {
-            document.getElementById("status").textContent =
-              translations[currentLanguage].status.hover;
-            document.body.style.cursor = "default";
-
-            // Skrýt hover osový kříž
-            if (!showAxesMode) {
-              hideHoverAxes();
-              lastHoveredIndex = null;
-            }
           }
-        }
+        }, 16); // ~60fps throttle
       }
 
       function onMouseDown(event) {

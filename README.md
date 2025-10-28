@@ -5,7 +5,7 @@ Interactive 3D visualization tool for displaying points and their rotations in 3
 ## Features
 
 - **Interactive 3D Scene**: Rotate, pan, and zoom to explore your data
-- **CSV Data Import**: Load point data with positions and rotations from CSV files
+- **Flexible CSV Import**: Load point data with positions (required) and rotations (optional)
 - **Rotation Visualization**: Display axes for each point showing their orientation
 - **Bilingual Interface**: Switch between Czech (default) and English with a single click 🇬🇧/🇨🇿
 - **Customizable Display**:
@@ -19,6 +19,8 @@ Interactive 3D visualization tool for displaying points and their rotations in 3
 - **Pivot Point Selection**: Click on any point to make it the center of rotation
 - **Label Display**: Show/hide point names
 - **Smooth Animations**: Animated camera transitions and visual feedback
+- **Robust Error Handling**: Clear error messages and input validation
+- **Performance Optimized**: Throttled mouse tracking and efficient rendering
 
 ## Usage
 
@@ -33,18 +35,38 @@ No installation, build process, or server required - just open the HTML file!
 
 ## CSV Format
 
-The input CSV file must contain the following columns:
+### Required Columns
 
-```
-name,p_x,p_y,p_z,r_x,r_y,r_z
+The CSV file **must** contain these columns:
+
+```csv
+name,p_x,p_y,p_z
 ```
 
 - `name` - Point name/label
 - `p_x`, `p_y`, `p_z` - Position coordinates (X, Y, Z)
+
+### Optional Columns
+
+Rotation data is **optional**. If omitted, points will be displayed without rotation (0°, 0°, 0°):
+
+```csv
+name,p_x,p_y,p_z,r_x,r_y,r_z
+```
+
 - `r_x`, `r_y`, `r_z` - Rotation angles (degrees by default, or radians if enabled in UI)
 
-Example:
+### Examples
 
+**Minimal format (positions only):**
+```csv
+name,p_x,p_y,p_z
+Point 1,10.0,0.0,0.0
+Point 2,0.0,10.0,0.0
+Point 3,0.0,0.0,10.0
+```
+
+**Full format (with rotations):**
 ```csv
 name,p_x,p_y,p_z,r_x,r_y,r_z
 Bod 1,10.0,0.0,0.0,0.0,0.0,0.0
@@ -53,6 +75,15 @@ Bod 3,0.0,0.0,10.0,0.0,0.0,45.0
 ```
 
 See `example/example.csv` for a complete example.
+
+### File Validation
+
+The application validates:
+- File type (must be .csv)
+- File size (max 10MB)
+- Required columns presence
+- Numeric value formats
+- Displays clear error messages for invalid data
 
 ## Controls
 
@@ -99,3 +130,16 @@ See `example/example.csv` for a complete example.
 - **OrbitControls**: Camera control system
 - Pure HTML/CSS/JavaScript - no build process required
 - Self-contained single file with CDN dependencies
+
+## Performance Optimizations
+
+The application includes several performance optimizations:
+
+- **Throttled Mouse Tracking**: Raycasting limited to ~60fps for smooth performance
+- **Efficient Material Updates**: Axes opacity updates without recreating geometry
+- **Smart Rendering**: Only updates what's necessary when settings change
+- **Optimized Code**: Reduced code duplication and improved maintainability
+
+## License
+
+See LICENSE file for details.
