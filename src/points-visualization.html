@@ -25,33 +25,66 @@
         font-size: 14px;
         min-width: 200px;
       }
-      #controls {
+      .panel {
         position: absolute;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border-radius: 5px;
+        transition: all 0.3s ease;
+      }
+      .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        cursor: pointer;
+        user-select: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+      }
+      .panel.collapsed .panel-header {
+        border-bottom: none;
+      }
+      .panel-header:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 5px 5px 0 0;
+      }
+      .panel.collapsed .panel-header:hover {
+        border-radius: 5px;
+      }
+      .panel-title {
+        font-weight: bold;
+        font-size: 13px;
+      }
+      .panel-toggle {
+        font-size: 16px;
+        transition: transform 0.3s ease;
+      }
+      .panel-toggle.collapsed {
+        transform: rotate(-90deg);
+      }
+      .panel-content {
+        padding: 10px 15px;
+        font-size: 12px;
+        overflow: hidden;
+        transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+      }
+      .panel-content.collapsed {
+        max-height: 0 !important;
+        opacity: 0;
+        padding: 0 15px;
+      }
+      #controls {
         top: 10px;
         left: 10px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
-        font-size: 12px;
       }
       #fileInput {
-        position: absolute;
         top: 10px;
         right: 10px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
       }
       #displayOptions {
-        position: absolute;
         top: 80px;
         right: 10px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
       }
       input[type="file"] {
         color: white;
@@ -86,83 +119,100 @@
   <body>
     <div id="container"></div>
     <div id="status">Najeďte myší na bod pro zobrazení názvu</div>
-    <div id="controls">
-      <strong>Ovládání:</strong><br />
-      Levé tlačítko myši: Otáčení<br />
-      Kolečko myši: Zoom<br />
-      Pravé tlačítko myši: Posunutí<br />
-      Prostřední tlačítko: Vybrat střed otáčení
+    <div id="controls" class="panel">
+      <div class="panel-header" onclick="togglePanel('controls')">
+        <span class="panel-title">Ovládání</span>
+        <span class="panel-toggle" id="controls-toggle">▼</span>
+      </div>
+      <div class="panel-content" id="controls-content">
+        Levé tlačítko myši: Otáčení<br />
+        Kolečko myši: Zoom<br />
+        Pravé tlačítko myši: Posunutí<br />
+        Prostřední tlačítko: Vybrat střed otáčení
+      </div>
     </div>
-    <div id="fileInput">
-      <label for="csvFile">Vyberte CSV soubor:</label>
-      <input type="file" id="csvFile" accept=".csv" />
+    <div id="fileInput" class="panel">
+      <div class="panel-header" onclick="togglePanel('fileInput')">
+        <span class="panel-title">Načíst data</span>
+        <span class="panel-toggle" id="fileInput-toggle">▼</span>
+      </div>
+      <div class="panel-content" id="fileInput-content">
+        <label for="csvFile">Vyberte CSV soubor:</label>
+        <input type="file" id="csvFile" accept=".csv" />
+      </div>
     </div>
-    <div id="displayOptions">
-      <label>
-        <input type="checkbox" id="showAxes" />
-        Zobrazit osové kříže
-      </label>
-      <br />
-      <label>
-        <input type="checkbox" id="showLabels" />
-        Zobrazit názvy bodů
-      </label>
-      <br />
-      <label>
-        <input type="checkbox" id="useRadians" />
-        Radiány (výchozí: stupně)
-      </label>
-      <br />
-      <label for="rotationOrder">Pořadí rotací:</label>
-      <select id="rotationOrder">
-        <option value="XYZ">XYZ</option>
-        <option value="XZY">XZY</option>
-        <option value="YXZ">YXZ</option>
-        <option value="YZX">YZX</option>
-        <option value="ZXY">ZXY</option>
-        <option value="ZYX">ZYX</option>
-      </select>
-      <div class="slider-container">
-        <span class="slider-label">Velikost bodů:</span>
-        <input
-          type="range"
-          id="pointSize"
-          min="5"
-          max="50"
-          value="15"
-          step="1"
-        />
-        <span class="slider-value" id="pointSizeValue">15</span>
+    <div id="displayOptions" class="panel">
+      <div class="panel-header" onclick="togglePanel('displayOptions')">
+        <span class="panel-title">Možnosti zobrazení</span>
+        <span class="panel-toggle" id="displayOptions-toggle">▼</span>
       </div>
-      <div class="slider-container">
-        <span class="slider-label">Velikost osových křížů:</span>
-        <input
-          type="range"
-          id="axesSize"
-          min="10"
-          max="200"
-          value="50"
-          step="5"
-        />
-        <span class="slider-value" id="axesSizeValue">50</span>
+      <div class="panel-content" id="displayOptions-content">
+        <label>
+          <input type="checkbox" id="showAxes" />
+          Zobrazit osové kříže
+        </label>
+        <br />
+        <label>
+          <input type="checkbox" id="showLabels" />
+          Zobrazit názvy bodů
+        </label>
+        <br />
+        <label>
+          <input type="checkbox" id="useRadians" />
+          Radiány (výchozí: stupně)
+        </label>
+        <br />
+        <label for="rotationOrder">Pořadí rotací:</label>
+        <select id="rotationOrder">
+          <option value="XYZ">XYZ</option>
+          <option value="XZY">XZY</option>
+          <option value="YXZ">YXZ</option>
+          <option value="YZX">YZX</option>
+          <option value="ZXY">ZXY</option>
+          <option value="ZYX">ZYX</option>
+        </select>
+        <div class="slider-container">
+          <span class="slider-label">Velikost bodů:</span>
+          <input
+            type="range"
+            id="pointSize"
+            min="5"
+            max="50"
+            value="10"
+            step="1"
+          />
+          <span class="slider-value" id="pointSizeValue">15</span>
+        </div>
+        <div class="slider-container">
+          <span class="slider-label">Velikost osových křížů:</span>
+          <input
+            type="range"
+            id="axesSize"
+            min="10"
+            max="200"
+            value="50"
+            step="5"
+          />
+          <span class="slider-value" id="axesSizeValue">50</span>
+        </div>
+        <div class="slider-container">
+          <span class="slider-label">Transparentnost osových křížů:</span>
+          <input
+            type="range"
+            id="axesOpacity"
+            min="0"
+            max="100"
+            value="90"
+            step="5"
+          />
+          <span class="slider-value" id="axesOpacityValue">0.90</span>
+        </div>
+        <br />
+        <label>
+          <input type="checkbox" id="darkMode" checked />
+          Tmavý režim
+        </label>
       </div>
-      <div class="slider-container">
-        <span class="slider-label">Transparentnost osových křížů:</span>
-        <input
-          type="range"
-          id="axesOpacity"
-          min="0"
-          max="100"
-          value="60"
-          step="5"
-        />
-        <span class="slider-value" id="axesOpacityValue">0.60</span>
-      </div>
-      <br />
-      <label>
-        <input type="checkbox" id="darkMode" checked />
-        Tmavý režim
-      </label>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -183,7 +233,7 @@
       let rotationOrder = "XYZ";
       let csvData = null;
       let lastHoveredIndex = null;
-      let pointSize = 15;
+      let pointSize = 10;
       let axesSize = 50;
       let axesOpacity = 0.9;
       let isDarkMode = true;
@@ -201,7 +251,33 @@
       let pivotMarkerFadeStart = null;
       let pivotMarkerFadeDuration = 3000; // 5 sekund
 
+      function togglePanel(panelId) {
+        const content = document.getElementById(panelId + '-content');
+        const toggle = document.getElementById(panelId + '-toggle');
+
+        if (content.classList.contains('collapsed')) {
+          // Rozbalit
+          content.classList.remove('collapsed');
+          toggle.classList.remove('collapsed');
+        } else {
+          // Sbalit
+          content.classList.add('collapsed');
+          toggle.classList.add('collapsed');
+        }
+      }
+
+      function initPanels() {
+        // Nastavit max-height pro všechny panel-content elementy
+        const panels = document.querySelectorAll('.panel-content');
+        panels.forEach(panel => {
+          panel.style.maxHeight = panel.scrollHeight + 'px';
+        });
+      }
+
       function init() {
+        // Inicializovat panely
+        initPanels();
+
         // Scéna
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x1a1a1a);
