@@ -144,7 +144,7 @@
         style="color: #7171fc"
         >Created by Michal Šára</a
       >
-      | v1.0.5
+      | v1.0.6
     </div>
     <div id="controls" class="panel">
       <div class="panel-header" onclick="togglePanel('controls')">
@@ -184,7 +184,12 @@
       </div>
       <div class="panel-content" id="displayOptions-content">
         <input type="checkbox" id="languageToggle" />
-        <span class="language-toggle-label" id="languageToggleLabel" data-i18n="language.toggle">🇬🇧</span>
+        <span
+          class="language-toggle-label"
+          id="languageToggleLabel"
+          data-i18n="language.toggle"
+          >🇬🇧</span
+        >
         <br />
         <label>
           <input type="checkbox" id="showAxes" />
@@ -221,7 +226,7 @@
           <input
             type="range"
             id="pointSize"
-            min="5"
+            min="0"
             max="50"
             value="10"
             step="1"
@@ -235,7 +240,7 @@
           <input
             type="range"
             id="axesSize"
-            min="10"
+            min="5"
             max="200"
             value="50"
             step="5"
@@ -466,7 +471,6 @@
             element.textContent = translation;
           }
         });
-
       }
 
       function togglePanel(panelId) {
@@ -602,7 +606,7 @@
           .addEventListener("change", switchLanguage);
         document
           .getElementById("languageToggleLabel")
-          .addEventListener("click", function() {
+          .addEventListener("click", function () {
             document.getElementById("languageToggle").click();
           });
 
@@ -650,8 +654,8 @@
           axesOpacity.toFixed(2);
 
         // Update opacity on existing axes without recreating them
-        axesObjects.forEach(axesGroup => {
-          axesGroup.children.forEach(arrow => {
+        axesObjects.forEach((axesGroup) => {
+          axesGroup.children.forEach((arrow) => {
             if (arrow.line) {
               arrow.line.material.opacity = axesOpacity;
               arrow.line.material.needsUpdate = true;
@@ -665,7 +669,7 @@
 
         // Update hover axes if visible
         if (hoverAxesHelper) {
-          hoverAxesHelper.children.forEach(arrow => {
+          hoverAxesHelper.children.forEach((arrow) => {
             if (arrow.line) {
               arrow.line.material.opacity = axesOpacity;
               arrow.line.material.needsUpdate = true;
@@ -1020,30 +1024,43 @@
       function parseCSV(text) {
         try {
           // Handle different line endings (CRLF, LF) and filter empty lines
-          const lines = text.trim().split(/\r?\n/).filter(line => line.trim());
+          const lines = text
+            .trim()
+            .split(/\r?\n/)
+            .filter((line) => line.trim());
 
           if (lines.length === 0) {
             throw new Error("CSV file is empty");
           }
 
-          const headers = lines[0].split(',').map(h => h.trim());
+          const headers = lines[0].split(",").map((h) => h.trim());
 
           // Validate required columns (only position columns are required)
-          const requiredColumns = ['name', 'p_x', 'p_y', 'p_z'];
-          const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+          const requiredColumns = ["name", "p_x", "p_y", "p_z"];
+          const missingColumns = requiredColumns.filter(
+            (col) => !headers.includes(col)
+          );
 
           if (missingColumns.length > 0) {
-            throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
+            throw new Error(
+              `Missing required columns: ${missingColumns.join(", ")}`
+            );
           }
 
           // Check for optional rotation columns
-          const optionalColumns = ['r_x', 'r_y', 'r_z'];
-          const missingRotationColumns = optionalColumns.filter(col => !headers.includes(col));
+          const optionalColumns = ["r_x", "r_y", "r_z"];
+          const missingRotationColumns = optionalColumns.filter(
+            (col) => !headers.includes(col)
+          );
           const hasRotationData = missingRotationColumns.length === 0;
 
           // Show warning if rotation columns are missing
           if (missingRotationColumns.length > 0) {
-            console.warn(`Optional rotation columns missing: ${missingRotationColumns.join(', ')}. Points will have no rotation.`);
+            console.warn(
+              `Optional rotation columns missing: ${missingRotationColumns.join(
+                ", "
+              )}. Points will have no rotation.`
+            );
           }
 
           const data = [];
@@ -1052,32 +1069,36 @@
             const line = lines[i].trim();
             if (!line) continue; // Skip empty lines
 
-            const values = line.split(',');
+            const values = line.split(",");
 
             // Skip malformed rows (wrong number of columns)
             if (values.length !== headers.length) {
-              console.warn(`Row ${i} has ${values.length} columns, expected ${headers.length}. Skipping.`);
+              console.warn(
+                `Row ${i} has ${values.length} columns, expected ${headers.length}. Skipping.`
+              );
               continue;
             }
 
             const obj = {};
             headers.forEach((header, index) => {
-              obj[header] = values[index]?.trim() || '';
+              obj[header] = values[index]?.trim() || "";
             });
 
             // Set default rotation values if missing
-            if (!obj.r_x) obj.r_x = '0';
-            if (!obj.r_y) obj.r_y = '0';
-            if (!obj.r_z) obj.r_z = '0';
+            if (!obj.r_x) obj.r_x = "0";
+            if (!obj.r_y) obj.r_y = "0";
+            if (!obj.r_z) obj.r_z = "0";
 
             // Validate numeric values for position (required)
-            const requiredNumericFields = ['p_x', 'p_y', 'p_z'];
+            const requiredNumericFields = ["p_x", "p_y", "p_z"];
             let isValid = true;
 
             for (const field of requiredNumericFields) {
               const value = parseFloat(obj[field]);
               if (isNaN(value)) {
-                console.warn(`Row ${i}: Invalid numeric value for ${field}: "${obj[field]}". Skipping.`);
+                console.warn(
+                  `Row ${i}: Invalid numeric value for ${field}: "${obj[field]}". Skipping.`
+                );
                 isValid = false;
                 break;
               }
@@ -1085,12 +1106,14 @@
 
             // Validate rotation values if they exist
             if (isValid && hasRotationData) {
-              const rotationFields = ['r_x', 'r_y', 'r_z'];
+              const rotationFields = ["r_x", "r_y", "r_z"];
               for (const field of rotationFields) {
                 const value = parseFloat(obj[field]);
                 if (isNaN(value)) {
-                  console.warn(`Row ${i}: Invalid numeric value for ${field}: "${obj[field]}". Using 0.`);
-                  obj[field] = '0';
+                  console.warn(
+                    `Row ${i}: Invalid numeric value for ${field}: "${obj[field]}". Using 0.`
+                  );
+                  obj[field] = "0";
                 }
               }
             }
@@ -1108,7 +1131,7 @@
           return {
             data: data,
             hasRotationData: hasRotationData,
-            missingRotationColumns: missingRotationColumns
+            missingRotationColumns: missingRotationColumns,
           };
         } catch (error) {
           console.error("CSV parsing error:", error);
@@ -1186,10 +1209,9 @@
           controls.target.copy(center);
           controls.update();
 
-          const loadedText = translations[currentLanguage].status.loaded.replace(
-            "{count}",
-            points.length
-          );
+          const loadedText = translations[
+            currentLanguage
+          ].status.loaded.replace("{count}", points.length);
           document.getElementById("status").textContent = loadedText;
 
           // Pokud je zapnutý režim osových křížů, zobrazit je
@@ -1202,7 +1224,7 @@
             displayAllLabels();
           }
         } catch (error) {
-          console.error('Error loading points:', error);
+          console.error("Error loading points:", error);
           alert(`Error displaying points: ${error.message}`);
           // Reset state on error
           csvData = null;
@@ -1216,25 +1238,25 @@
         if (!file) return;
 
         // Validate file type
-        if (!file.name.toLowerCase().endsWith('.csv')) {
-          alert('Error: Please select a CSV file (.csv)');
-          event.target.value = ''; // Reset file input
+        if (!file.name.toLowerCase().endsWith(".csv")) {
+          alert("Error: Please select a CSV file (.csv)");
+          event.target.value = ""; // Reset file input
           return;
         }
 
         // Validate file size (max 10MB)
         const maxSize = 10 * 1024 * 1024; // 10MB
         if (file.size > maxSize) {
-          alert('Error: File is too large. Maximum size is 10MB.');
-          event.target.value = ''; // Reset file input
+          alert("Error: File is too large. Maximum size is 10MB.");
+          event.target.value = ""; // Reset file input
           return;
         }
 
         const reader = new FileReader();
 
-        reader.onerror = function() {
-          alert('Error: Failed to read file. Please try again.');
-          event.target.value = ''; // Reset file input
+        reader.onerror = function () {
+          alert("Error: Failed to read file. Please try again.");
+          event.target.value = ""; // Reset file input
         };
 
         reader.onload = function (e) {
@@ -1243,21 +1265,23 @@
 
             // Show warning if rotation columns are missing
             if (!result.hasRotationData) {
-              const missingCols = result.missingRotationColumns.join(', ');
-              const warningMsg = currentLanguage === 'cs'
-                ? `Varování: Chybí volitelné sloupce pro rotaci: ${missingCols}\nBody budou zobrazeny bez dáné rotace s 0°.`
-                : `Warning: Optional rotation columns missing: ${missingCols}\nPoints will be displayed without rotation with 0°.`;
+              const missingCols = result.missingRotationColumns.join(", ");
+              const warningMsg =
+                currentLanguage === "cs"
+                  ? `Varování: Chybí volitelné sloupce pro rotaci: ${missingCols}\nBody budou zobrazeny bez dáné rotace s 0°.`
+                  : `Warning: Optional rotation columns missing: ${missingCols}\nPoints will be displayed without rotation with 0°.`;
               alert(warningMsg);
             }
 
             loadPoints(result.data);
           } catch (error) {
-            const errorMsg = currentLanguage === 'cs'
-              ? `Chyba při načítání CSV: ${error.message}\n\nPovinný formát:\nname,p_x,p_y,p_z\n\nVolitelné sloupce:\nr_x,r_y,r_z`
-              : `Error loading CSV: ${error.message}\n\nRequired format:\nname,p_x,p_y,p_z\n\nOptional columns:\nr_x,r_y,r_z`;
+            const errorMsg =
+              currentLanguage === "cs"
+                ? `Chyba při načítání CSV: ${error.message}\n\nPovinný formát:\nname,p_x,p_y,p_z\n\nVolitelné sloupce:\nr_x,r_y,r_z`
+                : `Error loading CSV: ${error.message}\n\nRequired format:\nname,p_x,p_y,p_z\n\nOptional columns:\nr_x,r_y,r_z`;
             alert(errorMsg);
-            event.target.value = ''; // Reset file input
-            console.error('CSV loading error:', error);
+            event.target.value = ""; // Reset file input
+            console.error("CSV loading error:", error);
           }
         };
 
