@@ -96,6 +96,20 @@
       label {
         cursor: pointer;
       }
+      #languageToggle {
+        display: none;
+      }
+      .language-toggle-label {
+        cursor: pointer;
+        font-size: 20px;
+        user-select: none;
+        display: block;
+        text-align: right;
+        margin-bottom: -40px;
+      }
+      .language-toggle-label:hover {
+        opacity: 0.7;
+      }
       input[type="range"] {
         width: 150px;
       }
@@ -130,52 +144,68 @@
         style="color: #7171fc"
         >Created by Michal Šára</a
       >
-      | v1.0.3
+      | v1.0.4
     </div>
     <div id="controls" class="panel">
       <div class="panel-header" onclick="togglePanel('controls')">
-        <span class="panel-title">Ovládání</span>
+        <span class="panel-title" data-i18n="controls.title">Ovládání</span>
         <span class="panel-toggle" id="controls-toggle">▼</span>
       </div>
       <div class="panel-content" id="controls-content">
-        Levé tlačítko myši: Otáčení<br />
-        Kolečko myši: Zoom<br />
-        Pravé tlačítko myši: Posunutí<br />
-        Prostřední tlačítko: Vybrat střed otáčení
+        <span data-i18n="controls.leftMouse">Levé tlačítko myši: Otáčení</span
+        ><br />
+        <span data-i18n="controls.wheel">Kolečko myši: Zoom</span><br />
+        <span data-i18n="controls.rightMouse"
+          >Pravé tlačítko myši: Posunutí</span
+        ><br />
+        <span data-i18n="controls.middleMouse"
+          >Prostřední tlačítko: Vybrat střed otáčení</span
+        >
       </div>
     </div>
     <div id="fileInput" class="panel">
       <div class="panel-header" onclick="togglePanel('fileInput')">
-        <span class="panel-title">Načíst data</span>
+        <span class="panel-title" data-i18n="fileInput.title">Načíst data</span>
         <span class="panel-toggle" id="fileInput-toggle">▼</span>
       </div>
       <div class="panel-content" id="fileInput-content">
-        <label for="csvFile">Vyberte CSV soubor:</label>
+        <label for="csvFile" data-i18n="fileInput.selectFile"
+          >Vyberte CSV soubor:</label
+        >
         <input type="file" id="csvFile" accept=".csv" />
       </div>
     </div>
     <div id="displayOptions" class="panel">
       <div class="panel-header" onclick="togglePanel('displayOptions')">
-        <span class="panel-title">Možnosti zobrazení</span>
+        <span class="panel-title" data-i18n="displayOptions.title"
+          >Možnosti zobrazení</span
+        >
         <span class="panel-toggle" id="displayOptions-toggle">▼</span>
       </div>
       <div class="panel-content" id="displayOptions-content">
+        <input type="checkbox" id="languageToggle" />
+        <span class="language-toggle-label" id="languageToggleLabel" data-i18n="language.toggle">🇬🇧</span>
+        <br />
         <label>
           <input type="checkbox" id="showAxes" />
-          Zobrazit osové kříže
+          <span data-i18n="displayOptions.showAxes">Zobrazit osové kříže</span>
         </label>
         <br />
         <label>
           <input type="checkbox" id="showLabels" />
-          Zobrazit názvy bodů
+          <span data-i18n="displayOptions.showLabels">Zobrazit názvy bodů</span>
         </label>
         <br />
         <label>
           <input type="checkbox" id="useRadians" />
-          Radiány (výchozí: stupně)
+          <span data-i18n="displayOptions.useRadians"
+            >Radiány (výchozí: stupně)</span
+          >
         </label>
         <br />
-        <label for="rotationOrder">Pořadí rotací:</label>
+        <label for="rotationOrder" data-i18n="displayOptions.rotationOrder"
+          >Pořadí rotací:</label
+        >
         <select id="rotationOrder">
           <option value="XYZ">XYZ</option>
           <option value="XZY">XZY</option>
@@ -185,7 +215,9 @@
           <option value="ZYX">ZYX</option>
         </select>
         <div class="slider-container">
-          <span class="slider-label">Velikost bodů:</span>
+          <span class="slider-label" data-i18n="displayOptions.pointSize"
+            >Velikost bodů:</span
+          >
           <input
             type="range"
             id="pointSize"
@@ -197,7 +229,9 @@
           <span class="slider-value" id="pointSizeValue">15</span>
         </div>
         <div class="slider-container">
-          <span class="slider-label">Velikost osových křížů:</span>
+          <span class="slider-label" data-i18n="displayOptions.axesSize"
+            >Velikost osových křížů:</span
+          >
           <input
             type="range"
             id="axesSize"
@@ -209,7 +243,9 @@
           <span class="slider-value" id="axesSizeValue">50</span>
         </div>
         <div class="slider-container">
-          <span class="slider-label">Transparentnost osových křížů:</span>
+          <span class="slider-label" data-i18n="displayOptions.axesOpacity"
+            >Transparentnost osových křížů:</span
+          >
           <input
             type="range"
             id="axesOpacity"
@@ -223,43 +259,53 @@
         <br />
         <label>
           <input type="checkbox" id="darkMode" checked />
-          Tmavý režim
+          <span data-i18n="displayOptions.darkMode">Tmavý režim</span>
         </label>
         <br />
         <br />
-        <strong>Viditelnost os:</strong>
+        <strong data-i18n="displayOptions.axisVisibility"
+          >Viditelnost os:</strong
+        >
         <br />
         <label>
           <input type="checkbox" id="showAxisX" checked />
-          Zobrazit osu X (červená)
+          <span data-i18n="displayOptions.showAxisX"
+            >Zobrazit osu X (červená)</span
+          >
         </label>
         <br />
         <label>
           <input type="checkbox" id="showAxisY" checked />
-          Zobrazit osu Y (zelená)
+          <span data-i18n="displayOptions.showAxisY"
+            >Zobrazit osu Y (zelená)</span
+          >
         </label>
         <br />
         <label>
           <input type="checkbox" id="showAxisZ" checked />
-          Zobrazit osu Z (modrá)
+          <span data-i18n="displayOptions.showAxisZ"
+            >Zobrazit osu Z (modrá)</span
+          >
         </label>
         <br />
         <br />
-        <strong>Otočení os (jednotlivě, pouze vizuální):</strong>
+        <strong data-i18n="displayOptions.axisFlip"
+          >Otočení os (jednotlivě, pouze vizuální):</strong
+        >
         <br />
         <label>
           <input type="checkbox" id="flipAxisX" />
-          Otočit osu X o 180°
+          <span data-i18n="displayOptions.flipAxisX">Otočit osu X o 180°</span>
         </label>
         <br />
         <label>
           <input type="checkbox" id="flipAxisY" />
-          Otočit osu Y o 180°
+          <span data-i18n="displayOptions.flipAxisY">Otočit osu Y o 180°</span>
         </label>
         <br />
         <label>
           <input type="checkbox" id="flipAxisZ" />
-          Otočit osu Z o 180°
+          <span data-i18n="displayOptions.flipAxisZ">Otočit osu Z o 180°</span>
         </label>
       </div>
     </div>
@@ -292,6 +338,95 @@
       let flipAxisX = false;
       let flipAxisY = false;
       let flipAxisZ = false;
+      let currentLanguage = "cs"; // Default language
+
+      // Translation object
+      const translations = {
+        cs: {
+          controls: {
+            title: "Ovládání",
+            leftMouse: "Levé tlačítko myši: Otáčení",
+            wheel: "Kolečko myši: Zoom",
+            rightMouse: "Pravé tlačítko myši: Posunutí",
+            middleMouse: "Prostřední tlačítko: Vybrat střed otáčení",
+          },
+          fileInput: {
+            title: "Načíst data",
+            selectFile: "Vyberte CSV soubor:",
+          },
+          displayOptions: {
+            title: "Možnosti zobrazení",
+            showAxes: "Zobrazit osové kříže",
+            showLabels: "Zobrazit názvy bodů",
+            useRadians: "Radiány (výchozí: stupně)",
+            rotationOrder: "Pořadí rotací:",
+            pointSize: "Velikost bodů:",
+            axesSize: "Velikost osových křížů:",
+            axesOpacity: "Transparentnost osových křížů:",
+            darkMode: "Tmavý režim",
+            axisVisibility: "Viditelnost os:",
+            showAxisX: "Zobrazit osu X (červená)",
+            showAxisY: "Zobrazit osu Y (zelená)",
+            showAxisZ: "Zobrazit osu Z (modrá)",
+            axisFlip: "Otočení os (jednotlivě, pouze vizuální):",
+            flipAxisX: "Otočit osu X o 180°",
+            flipAxisY: "Otočit osu Y o 180°",
+            flipAxisZ: "Otočit osu Z o 180°",
+          },
+          language: {
+            toggle: "🇬🇧",
+          },
+          status: {
+            hover: "Najeďte myší na bod pro zobrazení názvu",
+            loaded: "Načteno {count} bodů",
+            point: "Bod:",
+            pivotPoint: "Střed otáčení:",
+            worldCenter: "Světový střed",
+          },
+        },
+        en: {
+          controls: {
+            title: "Controls",
+            leftMouse: "Left mouse button: Rotate",
+            wheel: "Mouse wheel: Zoom",
+            rightMouse: "Right mouse button: Pan",
+            middleMouse: "Middle button: Select rotation center",
+          },
+          fileInput: {
+            title: "Load Data",
+            selectFile: "Select CSV file:",
+          },
+          displayOptions: {
+            title: "Display Options",
+            showAxes: "Show axes",
+            showLabels: "Show point labels",
+            useRadians: "Radians (default: degrees)",
+            rotationOrder: "Rotation order:",
+            pointSize: "Point size:",
+            axesSize: "Axes size:",
+            axesOpacity: "Axes opacity:",
+            darkMode: "Dark mode",
+            axisVisibility: "Axis visibility:",
+            showAxisX: "Show X axis (red)",
+            showAxisY: "Show Y axis (green)",
+            showAxisZ: "Show Z axis (blue)",
+            axisFlip: "Flip axes (individual, visual only):",
+            flipAxisX: "Flip X axis 180°",
+            flipAxisY: "Flip Y axis 180°",
+            flipAxisZ: "Flip Z axis 180°",
+          },
+          language: {
+            toggle: "🇨🇿",
+          },
+          status: {
+            hover: "Hover over a point to display its name",
+            loaded: "Loaded {count} points",
+            point: "Point:",
+            pivotPoint: "Rotation center:",
+            worldCenter: "World center",
+          },
+        },
+      };
 
       // Pro animaci přesunu kamery
       let isAnimating = false;
@@ -305,6 +440,35 @@
       // Pro animaci zmizení pivot markeru
       let pivotMarkerFadeStart = null;
       let pivotMarkerFadeDuration = 3000; // 5 sekund
+
+      // Language switching function
+      function switchLanguage() {
+        currentLanguage = currentLanguage === "cs" ? "en" : "cs";
+        updateAllTexts();
+      }
+
+      // Update all text elements with current language
+      function updateAllTexts() {
+        document.querySelectorAll("[data-i18n]").forEach((element) => {
+          const key = element.getAttribute("data-i18n");
+          const keys = key.split(".");
+          let translation = translations[currentLanguage];
+
+          for (const k of keys) {
+            translation = translation[k];
+          }
+
+          if (translation) {
+            element.textContent = translation;
+          }
+        });
+
+        // Update status text if no data loaded
+        if (!csvData) {
+          document.getElementById("status").innerHTML =
+            '<a href="https://michalsara.cz" target="_blank" rel="noopener noreferrer" style="color: #7171fc">Created by Michal Šára</a> | v1.0.3';
+        }
+      }
 
       function togglePanel(panelId) {
         const content = document.getElementById(panelId + "-content");
@@ -434,6 +598,14 @@
         document
           .getElementById("flipAxisZ")
           .addEventListener("change", updateAxisFlip);
+        document
+          .getElementById("languageToggle")
+          .addEventListener("change", switchLanguage);
+        document
+          .getElementById("languageToggleLabel")
+          .addEventListener("click", function() {
+            document.getElementById("languageToggle").click();
+          });
 
         animate();
       }
@@ -935,9 +1107,11 @@
         controls.target.copy(center);
         controls.update();
 
-        document.getElementById(
-          "status"
-        ).textContent = `Načteno ${points.length} bodů`;
+        const loadedText = translations[currentLanguage].status.loaded.replace(
+          "{count}",
+          points.length
+        );
+        document.getElementById("status").textContent = loadedText;
 
         // Pokud je zapnutý režim osových křížů, zobrazit je
         if (showAxesMode) {
@@ -988,9 +1162,10 @@
               const rz = parseFloat(row.r_z).toFixed(2);
               const angleUnit = useRadians ? "rad" : "°";
 
+              const pointLabel = translations[currentLanguage].status.point;
               document.getElementById(
                 "status"
-              ).textContent = `Bod: ${point.name} | [${x}, ${y}, ${z}, ${rx}${angleUnit}, ${ry}${angleUnit}, ${rz}${angleUnit}]`;
+              ).textContent = `${pointLabel} ${point.name} | [${x}, ${y}, ${z}, ${rx}${angleUnit}, ${ry}${angleUnit}, ${rz}${angleUnit}]`;
               document.body.style.cursor = "pointer";
 
               // Zobrazit osový kříž při hoveru (pouze když není zapnutý režim všech křížů)
@@ -1001,7 +1176,7 @@
             }
           } else {
             document.getElementById("status").textContent =
-              "Najeďte myší na bod pro zobrazení názvu";
+              translations[currentLanguage].status.hover;
             document.body.style.cursor = "default";
 
             // Skrýt hover osový kříž
@@ -1066,9 +1241,11 @@
                 animationStart = null;
 
                 // Aktualizovat status
+                const pivotLabel =
+                  translations[currentLanguage].status.pivotPoint;
                 document.getElementById(
                   "status"
-                ).textContent = `Střed otáčení: ${points[index].name}`;
+                ).textContent = `${pivotLabel} ${points[index].name}`;
 
                 // Vytvořit nebo aktualizovat vizuální marker
                 createPivotMarker(newPivot);
@@ -1102,9 +1279,12 @@
             animationStart = null;
 
             // Aktualizovat status
+            const pivotLabel = translations[currentLanguage].status.pivotPoint;
+            const worldCenterLabel =
+              translations[currentLanguage].status.worldCenter;
             document.getElementById(
               "status"
-            ).textContent = `Střed otáčení: Světový střed [0, 0, 0]`;
+            ).textContent = `${pivotLabel} ${worldCenterLabel} [0, 0, 0]`;
 
             // Vytvořit nebo aktualizovat vizuální marker
             createPivotMarker(worldCenter);

@@ -7,6 +7,7 @@ Interactive 3D visualization tool for displaying points and their rotations in 3
 - **Interactive 3D Scene**: Rotate, pan, and zoom to explore your data
 - **CSV Data Import**: Load point data with positions and rotations from CSV files
 - **Rotation Visualization**: Display axes for each point showing their orientation
+- **Bilingual Interface**: Switch between Czech (default) and English with a single click 🇬🇧/🇨🇿
 - **Customizable Display**:
   - Adjust point size (5-50 pixels)
   - Configure axes size (10-200) and opacity (0-1)
@@ -65,6 +66,10 @@ See `example/example.csv` for a complete example.
 - **Mouse wheel**: Zoom in/out
 
 ### Display Options Panel
+
+**Language:**
+
+- Click the flag icon (🇬🇧/🇨🇿) to switch between Czech and English
 
 **Visualization:**
 
