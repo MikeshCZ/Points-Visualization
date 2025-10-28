@@ -703,6 +703,8 @@
 
           raycaster.setFromCamera(mouse, camera);
 
+          let hitPoint = false;
+
           if (pointObjects.length > 0) {
             const intersects = raycaster.intersectObjects(pointObjects);
 
@@ -711,6 +713,7 @@
               const index = intersect.index;
 
               if (index !== undefined && points[index]) {
+                hitPoint = true;
                 // Nastavit nový pivot bod
                 const newPivot = points[index].position;
 
@@ -748,6 +751,44 @@
                 createPivotMarker(newPivot);
               }
             }
+          }
+
+          // Pokud jsme neklikli na bod, nastavit střed na [0, 0, 0]
+          if (!hitPoint) {
+            const worldCenter = new THREE.Vector3(0, 0, 0);
+
+            // Vypočítat aktuální vzdálenost kamery od starého pivot bodu
+            const currentDistance = camera.position.distanceTo(
+              controls.target
+            );
+
+            // Vypočítat směr od starého targetu k kameře
+            const direction = new THREE.Vector3();
+            direction
+              .subVectors(camera.position, controls.target)
+              .normalize();
+
+            // Nastavit novou pozici kamery - stejná vzdálenost od světového středu
+            const newCameraPos = new THREE.Vector3();
+            newCameraPos
+              .copy(worldCenter)
+              .add(direction.multiplyScalar(currentDistance));
+
+            // Spustit animaci
+            startCameraPos.copy(camera.position);
+            targetCameraPos.copy(newCameraPos);
+            startControlsTarget.copy(controls.target);
+            targetControlsTarget.copy(worldCenter);
+            isAnimating = true;
+            animationStart = null;
+
+            // Aktualizovat status
+            document.getElementById(
+              "status"
+            ).textContent = `Střed otáčení: Světový střed [0, 0, 0]`;
+
+            // Vytvořit nebo aktualizovat vizuální marker
+            createPivotMarker(worldCenter);
           }
         }
       }
