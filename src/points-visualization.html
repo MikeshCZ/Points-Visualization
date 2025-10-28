@@ -104,6 +104,11 @@
       </label>
       <br />
       <label>
+        <input type="checkbox" id="showLabels" />
+        Zobrazit názvy bodů
+      </label>
+      <br />
+      <label>
         <input type="checkbox" id="useRadians" />
         Radiány (výchozí: stupně)
       </label>
@@ -119,17 +124,38 @@
       </select>
       <div class="slider-container">
         <span class="slider-label">Velikost bodů:</span>
-        <input type="range" id="pointSize" min="5" max="50" value="15" step="1" />
+        <input
+          type="range"
+          id="pointSize"
+          min="5"
+          max="50"
+          value="15"
+          step="1"
+        />
         <span class="slider-value" id="pointSizeValue">15</span>
       </div>
       <div class="slider-container">
         <span class="slider-label">Velikost osových křížů:</span>
-        <input type="range" id="axesSize" min="10" max="200" value="50" step="5" />
+        <input
+          type="range"
+          id="axesSize"
+          min="10"
+          max="200"
+          value="50"
+          step="5"
+        />
         <span class="slider-value" id="axesSizeValue">50</span>
       </div>
       <div class="slider-container">
         <span class="slider-label">Transparentnost osových křížů:</span>
-        <input type="range" id="axesOpacity" min="0" max="100" value="60" step="5" />
+        <input
+          type="range"
+          id="axesOpacity"
+          min="0"
+          max="100"
+          value="60"
+          step="5"
+        />
         <span class="slider-value" id="axesOpacityValue">0.60</span>
       </div>
       <br />
@@ -147,17 +173,19 @@
       let points = [];
       let pointObjects = [];
       let axesObjects = [];
+      let labelSprites = [];
       let hoverAxesHelper = null;
       let pivotMarker = null;
       let raycaster, mouse;
       let showAxesMode = false;
+      let showLabelsMode = false;
       let useRadians = false;
       let rotationOrder = "XYZ";
       let csvData = null;
       let lastHoveredIndex = null;
       let pointSize = 15;
       let axesSize = 50;
-      let axesOpacity = 0.6;
+      let axesOpacity = 0.9;
       let isDarkMode = true;
 
       // Pro animaci přesunu kamery
@@ -237,6 +265,9 @@
           .getElementById("showAxes")
           .addEventListener("change", toggleAxesDisplay);
         document
+          .getElementById("showLabels")
+          .addEventListener("change", toggleLabelsDisplay);
+        document
           .getElementById("useRadians")
           .addEventListener("change", toggleAngleMode);
         document
@@ -286,9 +317,12 @@
       }
 
       function updateAxesOpacity() {
-        const opacityValue = parseInt(document.getElementById("axesOpacity").value);
+        const opacityValue = parseInt(
+          document.getElementById("axesOpacity").value
+        );
         axesOpacity = opacityValue / 100; // Převést z 0-100 na 0-1
-        document.getElementById("axesOpacityValue").textContent = axesOpacity.toFixed(2);
+        document.getElementById("axesOpacityValue").textContent =
+          axesOpacity.toFixed(2);
 
         // Překreslit všechny osové kříže s novou transparentností
         if (csvData) {
@@ -314,6 +348,11 @@
         // Překreslit body s novými barvami podle režimu
         if (csvData) {
           updatePointColors();
+
+          // Překreslit labely s novými barvami
+          if (showLabelsMode) {
+            displayAllLabels();
+          }
         }
       }
 
@@ -460,6 +499,81 @@
         return axesGroup;
       }
 
+      function createTextSprite(text, position) {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.width = 128;
+        canvas.height = 32;
+
+        // Nastavení textu
+        context.font = "16px Arial";
+        context.fillStyle = isDarkMode
+          ? "rgba(255, 255, 255, 0.9)"
+          : "rgba(0, 0, 0, 0.9)";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+
+        // Pozadí pro lepší čitelnost
+        context.fillStyle = isDarkMode
+          ? "rgba(0, 0, 0, 0.5)"
+          : "rgba(255, 255, 255, 0.7)";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Text
+        context.fillStyle = isDarkMode
+          ? "rgba(255, 255, 255, 0.9)"
+          : "rgba(0, 0, 0, 0.9)";
+        context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+        // Vytvořit texturu z canvasu
+        const texture = new THREE.Texture(canvas);
+        texture.needsUpdate = true;
+
+        // Vytvořit sprite material
+        const spriteMaterial = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+        });
+
+        // Vytvořit sprite
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.copy(position);
+        sprite.position.y += 30; // Posunout nad bod
+        sprite.scale.set(100, 25, 1); // Velikost sprite
+
+        return sprite;
+      }
+
+      function toggleLabelsDisplay() {
+        showLabelsMode = document.getElementById("showLabels").checked;
+
+        if (csvData) {
+          if (showLabelsMode) {
+            displayAllLabels();
+          } else {
+            hideAllLabels();
+          }
+        }
+      }
+
+      function displayAllLabels() {
+        // Odstranit předchozí labely
+        hideAllLabels();
+
+        // Vytvořit labely pro všechny body
+        csvData.forEach((row, index) => {
+          const position = points[index].position.clone();
+          const sprite = createTextSprite(row.name, position);
+          scene.add(sprite);
+          labelSprites.push(sprite);
+        });
+      }
+
+      function hideAllLabels() {
+        labelSprites.forEach((sprite) => scene.remove(sprite));
+        labelSprites = [];
+      }
+
       function toggleAxesDisplay() {
         showAxesMode = document.getElementById("showAxes").checked;
 
@@ -562,6 +676,7 @@
         points = [];
         hideAllAxes();
         hideHoverAxes();
+        hideAllLabels();
 
         const geometry = new THREE.BufferGeometry();
         const positions = [];
@@ -636,6 +751,11 @@
         // Pokud je zapnutý režim osových křížů, zobrazit je
         if (showAxesMode) {
           displayAllAxes();
+        }
+
+        // Pokud je zapnutý režim labelů, zobrazit je
+        if (showLabelsMode) {
+          displayAllLabels();
         }
       }
 
@@ -770,15 +890,11 @@
             const worldCenter = new THREE.Vector3(0, 0, 0);
 
             // Vypočítat aktuální vzdálenost kamery od starého pivot bodu
-            const currentDistance = camera.position.distanceTo(
-              controls.target
-            );
+            const currentDistance = camera.position.distanceTo(controls.target);
 
             // Vypočítat směr od starého targetu k kameře
             const direction = new THREE.Vector3();
-            direction
-              .subVectors(camera.position, controls.target)
-              .normalize();
+            direction.subVectors(camera.position, controls.target).normalize();
 
             // Nastavit novou pozici kamery - stejná vzdálenost od světového středu
             const newCameraPos = new THREE.Vector3();
@@ -871,7 +987,7 @@
         const material = new THREE.ShaderMaterial({
           transparent: true,
           uniforms: {
-            fadeProgress: { value: 0.0 }
+            fadeProgress: { value: 0.0 },
           },
           vertexShader: `
             varying vec3 vNormal;
@@ -897,7 +1013,7 @@
 
               gl_FragColor = vec4(color, alpha);
             }
-          `
+          `,
         });
 
         pivotMarker = new THREE.Mesh(geometry, material);
@@ -928,7 +1044,6 @@
       }
 
       init();
-
     </script>
   </body>
 </html>
