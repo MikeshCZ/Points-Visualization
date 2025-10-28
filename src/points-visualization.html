@@ -83,7 +83,7 @@
         right: 10px;
       }
       #displayOptions {
-        top: 80px;
+        top: 100px;
         right: 10px;
       }
       input[type="file"] {
@@ -113,6 +113,10 @@
         text-align: right;
         margin-left: 5px;
         font-size: 11px;
+      }
+      strong {
+        font-size: 11px;
+        color: #aaaaaa;
       }
     </style>
   </head>
@@ -212,6 +216,42 @@
           <input type="checkbox" id="darkMode" checked />
           Tmavý režim
         </label>
+        <br />
+        <br />
+        <strong>Viditelnost os:</strong>
+        <br />
+        <label>
+          <input type="checkbox" id="showAxisX" checked />
+          Zobrazit osu X (červená)
+        </label>
+        <br />
+        <label>
+          <input type="checkbox" id="showAxisY" checked />
+          Zobrazit osu Y (zelená)
+        </label>
+        <br />
+        <label>
+          <input type="checkbox" id="showAxisZ" checked />
+          Zobrazit osu Z (modrá)
+        </label>
+        <br />
+        <br />
+        <strong>Otočení os (jednotlivě, pouze vizuální):</strong>
+        <br />
+        <label>
+          <input type="checkbox" id="flipAxisX" />
+          Otočit osu X o 180°
+        </label>
+        <br />
+        <label>
+          <input type="checkbox" id="flipAxisY" />
+          Otočit osu Y o 180°
+        </label>
+        <br />
+        <label>
+          <input type="checkbox" id="flipAxisZ" />
+          Otočit osu Z o 180°
+        </label>
       </div>
     </div>
 
@@ -237,6 +277,12 @@
       let axesSize = 50;
       let axesOpacity = 0.9;
       let isDarkMode = true;
+      let showAxisX = true;
+      let showAxisY = true;
+      let showAxisZ = true;
+      let flipAxisX = false;
+      let flipAxisY = false;
+      let flipAxisZ = false;
 
       // Pro animaci přesunu kamery
       let isAnimating = false;
@@ -361,6 +407,24 @@
         document
           .getElementById("darkMode")
           .addEventListener("change", toggleDarkMode);
+        document
+          .getElementById("showAxisX")
+          .addEventListener("change", updateAxisVisibility);
+        document
+          .getElementById("showAxisY")
+          .addEventListener("change", updateAxisVisibility);
+        document
+          .getElementById("showAxisZ")
+          .addEventListener("change", updateAxisVisibility);
+        document
+          .getElementById("flipAxisX")
+          .addEventListener("change", updateAxisFlip);
+        document
+          .getElementById("flipAxisY")
+          .addEventListener("change", updateAxisFlip);
+        document
+          .getElementById("flipAxisZ")
+          .addEventListener("change", updateAxisFlip);
 
         animate();
       }
@@ -428,6 +492,36 @@
           // Překreslit labely s novými barvami
           if (showLabelsMode) {
             displayAllLabels();
+          }
+        }
+      }
+
+      function updateAxisVisibility() {
+        showAxisX = document.getElementById("showAxisX").checked;
+        showAxisY = document.getElementById("showAxisY").checked;
+        showAxisZ = document.getElementById("showAxisZ").checked;
+
+        // Překreslit všechny osové kříže s novou viditelností
+        if (csvData) {
+          if (showAxesMode) {
+            displayAllAxes();
+          } else if (lastHoveredIndex !== null) {
+            showHoverAxes(lastHoveredIndex);
+          }
+        }
+      }
+
+      function updateAxisFlip() {
+        flipAxisX = document.getElementById("flipAxisX").checked;
+        flipAxisY = document.getElementById("flipAxisY").checked;
+        flipAxisZ = document.getElementById("flipAxisZ").checked;
+
+        // Překreslit všechny osové kříže s novým otočením
+        if (csvData) {
+          if (showAxesMode) {
+            displayAllAxes();
+          } else if (lastHoveredIndex !== null) {
+            showHoverAxes(lastHoveredIndex);
           }
         }
       }
@@ -522,47 +616,59 @@
         const headLength = size * 0.2;
         const headWidth = size * 0.15;
 
-        // X osa - červená
-        const xAxis = new THREE.ArrowHelper(
-          new THREE.Vector3(1, 0, 0),
-          new THREE.Vector3(0, 0, 0),
-          axisLength,
-          0xff0000,
-          headLength,
-          headWidth
-        );
+        // X osa - červená (pouze pokud je zapnutá)
+        if (showAxisX) {
+          const xDirection = flipAxisX ? -1 : 1;
+          const xAxis = new THREE.ArrowHelper(
+            new THREE.Vector3(xDirection, 0, 0),
+            new THREE.Vector3(0, 0, 0),
+            axisLength,
+            0xff0000,
+            headLength,
+            headWidth
+          );
+          xAxis.line.material.transparent = true;
+          xAxis.line.material.opacity = axesOpacity;
+          xAxis.cone.material.transparent = true;
+          xAxis.cone.material.opacity = axesOpacity;
+          axesGroup.add(xAxis);
+        }
 
-        // Y osa - zelená
-        const yAxis = new THREE.ArrowHelper(
-          new THREE.Vector3(0, 1, 0),
-          new THREE.Vector3(0, 0, 0),
-          axisLength,
-          0x00ff00,
-          headLength,
-          headWidth
-        );
+        // Y osa - zelená (pouze pokud je zapnutá)
+        if (showAxisY) {
+          const yDirection = flipAxisY ? -1 : 1;
+          const yAxis = new THREE.ArrowHelper(
+            new THREE.Vector3(0, yDirection, 0),
+            new THREE.Vector3(0, 0, 0),
+            axisLength,
+            0x00ff00,
+            headLength,
+            headWidth
+          );
+          yAxis.line.material.transparent = true;
+          yAxis.line.material.opacity = axesOpacity;
+          yAxis.cone.material.transparent = true;
+          yAxis.cone.material.opacity = axesOpacity;
+          axesGroup.add(yAxis);
+        }
 
-        // Z osa - modrá
-        const zAxis = new THREE.ArrowHelper(
-          new THREE.Vector3(0, 0, 1),
-          new THREE.Vector3(0, 0, 0),
-          axisLength,
-          0x0000ff,
-          headLength,
-          headWidth
-        );
-
-        // Nastavit transparentnost pro všechny osy
-        [xAxis, yAxis, zAxis].forEach((axis) => {
-          axis.line.material.transparent = true;
-          axis.line.material.opacity = axesOpacity;
-          axis.cone.material.transparent = true;
-          axis.cone.material.opacity = axesOpacity;
-        });
-
-        axesGroup.add(xAxis);
-        axesGroup.add(yAxis);
-        axesGroup.add(zAxis);
+        // Z osa - modrá (pouze pokud je zapnutá)
+        if (showAxisZ) {
+          const zDirection = flipAxisZ ? -1 : 1;
+          const zAxis = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, zDirection),
+            new THREE.Vector3(0, 0, 0),
+            axisLength,
+            0x0000ff,
+            headLength,
+            headWidth
+          );
+          zAxis.line.material.transparent = true;
+          zAxis.line.material.opacity = axesOpacity;
+          zAxis.cone.material.transparent = true;
+          zAxis.cone.material.opacity = axesOpacity;
+          axesGroup.add(zAxis);
+        }
 
         // Nastavení pozice
         axesGroup.position.copy(position);
