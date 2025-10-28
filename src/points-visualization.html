@@ -122,7 +122,16 @@
   </head>
   <body>
     <div id="container"></div>
-    <div id="status">Najeďte myší na bod pro zobrazení názvu</div>
+    <div id="status">
+      <a
+        href="https://michalsara.cz"
+        target="_blank"
+        rel="noopener noreferrer"
+        style="color: #7171fc"
+        >Created by Michal Šára</a
+      >
+      | v1.0.3
+    </div>
     <div id="controls" class="panel">
       <div class="panel-header" onclick="togglePanel('controls')">
         <span class="panel-title">Ovládání</span>
@@ -298,25 +307,25 @@
       let pivotMarkerFadeDuration = 3000; // 5 sekund
 
       function togglePanel(panelId) {
-        const content = document.getElementById(panelId + '-content');
-        const toggle = document.getElementById(panelId + '-toggle');
+        const content = document.getElementById(panelId + "-content");
+        const toggle = document.getElementById(panelId + "-toggle");
 
-        if (content.classList.contains('collapsed')) {
+        if (content.classList.contains("collapsed")) {
           // Rozbalit
-          content.classList.remove('collapsed');
-          toggle.classList.remove('collapsed');
+          content.classList.remove("collapsed");
+          toggle.classList.remove("collapsed");
         } else {
           // Sbalit
-          content.classList.add('collapsed');
-          toggle.classList.add('collapsed');
+          content.classList.add("collapsed");
+          toggle.classList.add("collapsed");
         }
       }
 
       function initPanels() {
         // Nastavit max-height pro všechny panel-content elementy
-        const panels = document.querySelectorAll('.panel-content');
-        panels.forEach(panel => {
-          panel.style.maxHeight = panel.scrollHeight + 'px';
+        const panels = document.querySelectorAll(".panel-content");
+        panels.forEach((panel) => {
+          panel.style.maxHeight = panel.scrollHeight + "px";
         });
       }
 
