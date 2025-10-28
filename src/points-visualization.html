@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Vizualizace bodů z CSV</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+      }
+      #container {
+        width: 100vw;
+        height: 100vh;
+      }
+      #status {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        font-size: 14px;
+        min-width: 200px;
+      }
+      #controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+      #fileInput {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+      }
+      #displayOptions {
+        position: absolute;
+        top: 80px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+      }
+      input[type="file"] {
+        color: white;
+      }
+      input[type="checkbox"] {
+        margin-right: 5px;
+        cursor: pointer;
+      }
+      label {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <div id="status">Najeďte myší na bod pro zobrazení názvu</div>
+    <div id="controls">
+      <strong>Ovládání:</strong><br />
+      Levé tlačítko myši: Otáčení<br />
+      Kolečko myši: Zoom<br />
+      Pravé tlačítko myši: Posunutí<br />
+      Prostřední tlačítko: Vybrat střed otáčení
+    </div>
+    <div id="fileInput">
+      <label for="csvFile">Vyberte CSV soubor:</label>
+      <input type="file" id="csvFile" accept=".csv" />
+    </div>
+    <div id="displayOptions">
+      <label>
+        <input type="checkbox" id="showAxes" />
+        Zobrazit osové kříže
+      </label>
+      <br />
+      <label>
+        <input type="checkbox" id="useRadians" />
+        Radiány (výchozí: stupně)
+      </label>
+      <br />
+      <label for="rotationOrder">Pořadí rotací:</label>
+      <select id="rotationOrder">
+        <option value="XYZ">XYZ</option>
+        <option value="XZY">XZY</option>
+        <option value="YXZ">YXZ</option>
+        <option value="YZX">YZX</option>
+        <option value="ZXY">ZXY</option>
+        <option value="ZYX">ZYX</option>
+      </select>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+      let scene, camera, renderer, controls;
+      let points = [];
+      let pointObjects = [];
+      let axesObjects = [];
+      let hoverAxesHelper = null;
+      let pivotMarker = null;
+      let raycaster, mouse;
+      let showAxesMode = false;
+      let useRadians = false;
+      let rotationOrder = "XYZ";
+      let csvData = null;
+      let lastHoveredIndex = null;
+
+      // Pro animaci přesunu kamery
+      let isAnimating = false;
+      let animationStart = null;
+      let animationDuration = 500; // ms
+      let startCameraPos = new THREE.Vector3();
+      let targetCameraPos = new THREE.Vector3();
+      let startControlsTarget = new THREE.Vector3();
+      let targetControlsTarget = new THREE.Vector3();
+
+      // Pro animaci zmizení pivot markeru
+      let pivotMarkerFadeStart = null;
+      let pivotMarkerFadeDuration = 3000; // 5 sekund
+
+      function init() {
+        // Scéna
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        // Kamera
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          10000
+        );
+        camera.position.set(0, 0, 1000);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById("container").appendChild(renderer.domElement);
+
+        // DŮLEŽITÉ: Přidat event listener na canvas PŘED inicializací OrbitControls
+        // Použít pointerdown místo mousedown - má vyšší prioritu
+        renderer.domElement.addEventListener("pointerdown", onMouseDown, {
+          capture: true,
+        });
+        renderer.domElement.addEventListener("pointermove", onMouseMove);
+
+        // Ovládání
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.screenSpacePanning = false;
+        controls.minDistance = 100;
+        controls.maxDistance = 5000;
+
+        // Zakázat prostřední tlačítko pro pan - použijeme ho pro výběr pivot bodu
+        controls.mouseButtons = {
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: null, // Zakázat prostřední tlačítko
+          RIGHT: THREE.MOUSE.PAN,
+        };
+
+        // Raycaster pro detekci myši
+        raycaster = new THREE.Raycaster();
+        raycaster.params.Points.threshold = 20;
+        mouse = new THREE.Vector2();
+
+        // Mřížka pro orientaci
+        const gridHelper = new THREE.GridHelper(2000, 20, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        // Osy
+        const axesHelper = new THREE.AxesHelper(500);
+        scene.add(axesHelper);
+
+        // Event listenery
+        window.addEventListener("resize", onWindowResize);
+        // mousemove a mousedown jsou už přidané na canvas výše, před OrbitControls
+        document
+          .getElementById("csvFile")
+          .addEventListener("change", handleFileSelect);
+        document
+          .getElementById("showAxes")
+          .addEventListener("change", toggleAxesDisplay);
+        document
+          .getElementById("useRadians")
+          .addEventListener("change", toggleAngleMode);
+        document
+          .getElementById("rotationOrder")
+          .addEventListener("change", changeRotationOrder);
+
+        animate();
+      }
+
+      function changeRotationOrder() {
+        rotationOrder = document.getElementById("rotationOrder").value;
+
+        // Překreslit osové kříže s novým pořadím rotací
+        if (csvData) {
+          if (showAxesMode) {
+            displayAllAxes();
+          } else if (lastHoveredIndex !== null) {
+            showHoverAxes(lastHoveredIndex);
+          }
+        }
+      }
+
+      function degreesToRadians(degrees) {
+        return degrees * (Math.PI / 180);
+      }
+
+      function getRotationValues(r_x, r_y, r_z) {
+        if (useRadians) {
+          // Pokud jsou hodnoty v radiánech, použít je přímo
+          return {
+            x: parseFloat(r_x),
+            y: parseFloat(r_y),
+            z: parseFloat(r_z),
+          };
+        } else {
+          // Pokud jsou hodnoty ve stupních, převést na radiány
+          return {
+            x: degreesToRadians(parseFloat(r_x)),
+            y: degreesToRadians(parseFloat(r_y)),
+            z: degreesToRadians(parseFloat(r_z)),
+          };
+        }
+      }
+
+      function toggleAngleMode() {
+        useRadians = document.getElementById("useRadians").checked;
+
+        // Překreslit všechny osové kříže s novým přepočtem
+        if (csvData) {
+          if (showAxesMode) {
+            displayAllAxes();
+          } else if (lastHoveredIndex !== null) {
+            showHoverAxes(lastHoveredIndex);
+          }
+        }
+      }
+
+      function createAxesHelper(position, rotation, size = 50) {
+        // Vytvoření skupiny pro osový kříž
+        const axesGroup = new THREE.Group();
+
+        // Vytvoření šipek pro osy X, Y, Z
+        const axisLength = size;
+        const headLength = size * 0.2;
+        const headWidth = size * 0.15;
+
+        // X osa - červená
+        const xAxis = new THREE.ArrowHelper(
+          new THREE.Vector3(1, 0, 0),
+          new THREE.Vector3(0, 0, 0),
+          axisLength,
+          0xff0000,
+          headLength,
+          headWidth
+        );
+
+        // Y osa - zelená
+        const yAxis = new THREE.ArrowHelper(
+          new THREE.Vector3(0, 1, 0),
+          new THREE.Vector3(0, 0, 0),
+          axisLength,
+          0x00ff00,
+          headLength,
+          headWidth
+        );
+
+        // Z osa - modrá
+        const zAxis = new THREE.ArrowHelper(
+          new THREE.Vector3(0, 0, 1),
+          new THREE.Vector3(0, 0, 0),
+          axisLength,
+          0x0000ff,
+          headLength,
+          headWidth
+        );
+
+        axesGroup.add(xAxis);
+        axesGroup.add(yAxis);
+        axesGroup.add(zAxis);
+
+        // Nastavení pozice
+        axesGroup.position.copy(position);
+
+        // Aplikace rotace z Euler úhlů (r_x, r_y, r_z)
+        // Použít zvolené pořadí rotací
+        axesGroup.rotation.order = rotationOrder;
+        axesGroup.rotation.set(rotation.x, rotation.y, rotation.z);
+
+        return axesGroup;
+      }
+
+      function toggleAxesDisplay() {
+        showAxesMode = document.getElementById("showAxes").checked;
+
+        if (csvData) {
+          if (showAxesMode) {
+            // Zobrazit všechny osové kříže
+            displayAllAxes();
+            // Skrýt hover osu
+            if (hoverAxesHelper) {
+              scene.remove(hoverAxesHelper);
+              hoverAxesHelper = null;
+            }
+          } else {
+            // Skrýt všechny osové kříže
+            hideAllAxes();
+          }
+        }
+      }
+
+      function displayAllAxes() {
+        // Odstranit předchozí osy
+        hideAllAxes();
+
+        // Vytvořit osové kříže pro všechny body
+        csvData.forEach((row) => {
+          const x = parseFloat(row.p_x);
+          const y = parseFloat(row.p_z);
+          const z = -parseFloat(row.p_y);
+
+          const position = new THREE.Vector3(x, y, z);
+          const rotation = getRotationValues(row.r_x, row.r_y, row.r_z);
+
+          const axesHelper = createAxesHelper(
+            position,
+            new THREE.Vector3(rotation.x, rotation.y, rotation.z)
+          );
+          scene.add(axesHelper);
+          axesObjects.push(axesHelper);
+        });
+      }
+
+      function hideAllAxes() {
+        axesObjects.forEach((axes) => scene.remove(axes));
+        axesObjects = [];
+      }
+
+      function showHoverAxes(index) {
+        if (!showAxesMode && csvData && csvData[index]) {
+          // Odstranit předchozí hover osu
+          if (hoverAxesHelper) {
+            scene.remove(hoverAxesHelper);
+          }
+
+          const row = csvData[index];
+          const x = parseFloat(row.p_x);
+          const y = parseFloat(row.p_z);
+          const z = -parseFloat(row.p_y);
+
+          const position = new THREE.Vector3(x, y, z);
+          const rotation = getRotationValues(row.r_x, row.r_y, row.r_z);
+
+          hoverAxesHelper = createAxesHelper(
+            position,
+            new THREE.Vector3(rotation.x, rotation.y, rotation.z),
+            60
+          );
+          scene.add(hoverAxesHelper);
+        }
+      }
+
+      function hideHoverAxes() {
+        if (hoverAxesHelper) {
+          scene.remove(hoverAxesHelper);
+          hoverAxesHelper = null;
+        }
+      }
+
+      function parseCSV(text) {
+        const lines = text.trim().split("\n");
+        const headers = lines[0].split(",");
+        const data = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(",");
+          const obj = {};
+          headers.forEach((header, index) => {
+            obj[header.trim()] = values[index];
+          });
+          data.push(obj);
+        }
+
+        return data;
+      }
+
+      function loadPoints(data) {
+        csvData = data;
+
+        // Vymazat předchozí body
+        pointObjects.forEach((obj) => scene.remove(obj));
+        pointObjects = [];
+        points = [];
+        hideAllAxes();
+        hideHoverAxes();
+
+        const geometry = new THREE.BufferGeometry();
+        const positions = [];
+        const colors = [];
+
+        csvData.forEach((row) => {
+          const x = parseFloat(row.p_x);
+          const y = parseFloat(row.p_z); // Z jako výška (Y v Three.js)
+          const z = -parseFloat(row.p_y); // Y jako hloubka (záporné Z)
+
+          positions.push(x, y, z);
+
+          // Barva bodů (modrá s gradientem podle výšky)
+          const color = new THREE.Color();
+          const hue = 0.6 + (y / 2000) * 0.2; // Odstín podle výšky
+          color.setHSL(hue, 1.0, 0.6);
+          colors.push(color.r, color.g, color.b);
+
+          points.push({
+            name: row.name,
+            position: new THREE.Vector3(x, y, z),
+          });
+        });
+
+        geometry.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(positions, 3)
+        );
+        geometry.setAttribute(
+          "color",
+          new THREE.Float32BufferAttribute(colors, 3)
+        );
+
+        const material = new THREE.PointsMaterial({
+          size: 15,
+          vertexColors: true,
+          sizeAttenuation: true,
+        });
+
+        const pointCloud = new THREE.Points(geometry, material);
+        scene.add(pointCloud);
+        pointObjects.push(pointCloud);
+
+        // Vycentrovat kameru
+        const box = new THREE.Box3().setFromObject(pointCloud);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+        cameraZ *= 1.5;
+
+        camera.position.set(
+          center.x + cameraZ,
+          center.y + cameraZ,
+          center.z + cameraZ
+        );
+        camera.lookAt(center);
+        controls.target.copy(center);
+        controls.update();
+
+        document.getElementById(
+          "status"
+        ).textContent = `Načteno ${points.length} bodů`;
+
+        // Pokud je zapnutý režim osových křížů, zobrazit je
+        if (showAxesMode) {
+          displayAllAxes();
+        }
+      }
+
+      function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const csvData = parseCSV(e.target.result);
+            loadPoints(csvData);
+          };
+          reader.readAsText(file);
+        }
+      }
+
+      function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        if (pointObjects.length > 0) {
+          const intersects = raycaster.intersectObjects(pointObjects);
+
+          if (intersects.length > 0) {
+            const intersect = intersects[0];
+            const index = intersect.index;
+
+            if (index !== undefined && points[index]) {
+              document.getElementById(
+                "status"
+              ).textContent = `Bod: ${points[index].name}`;
+              document.body.style.cursor = "pointer";
+
+              // Zobrazit osový kříž při hoveru (pouze když není zapnutý režim všech křížů)
+              if (!showAxesMode && lastHoveredIndex !== index) {
+                showHoverAxes(index);
+                lastHoveredIndex = index;
+              }
+            }
+          } else {
+            document.getElementById("status").textContent =
+              "Najeďte myší na bod pro zobrazení názvu";
+            document.body.style.cursor = "default";
+
+            // Skrýt hover osový kříž
+            if (!showAxesMode) {
+              hideHoverAxes();
+              lastHoveredIndex = null;
+            }
+          }
+        }
+      }
+
+      function onMouseDown(event) {
+        // Prostřední tlačítko myši (button = 1)
+        if (event.button === 1) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+
+          // Aktualizovat pozici myši
+          mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+          mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+          raycaster.setFromCamera(mouse, camera);
+
+          if (pointObjects.length > 0) {
+            const intersects = raycaster.intersectObjects(pointObjects);
+
+            if (intersects.length > 0) {
+              const intersect = intersects[0];
+              const index = intersect.index;
+
+              if (index !== undefined && points[index]) {
+                // Nastavit nový pivot bod
+                const newPivot = points[index].position;
+
+                // Vypočítat aktuální vzdálenost kamery od starého pivot bodu
+                const currentDistance = camera.position.distanceTo(
+                  controls.target
+                );
+
+                // Vypočítat směr od starého targetu k kameře
+                const direction = new THREE.Vector3();
+                direction
+                  .subVectors(camera.position, controls.target)
+                  .normalize();
+
+                // Nastavit novou pozici kamery - stejná vzdálenost od nového pivot bodu
+                const newCameraPos = new THREE.Vector3();
+                newCameraPos
+                  .copy(newPivot)
+                  .add(direction.multiplyScalar(currentDistance));
+
+                // Spustit animaci
+                startCameraPos.copy(camera.position);
+                targetCameraPos.copy(newCameraPos);
+                startControlsTarget.copy(controls.target);
+                targetControlsTarget.copy(newPivot);
+                isAnimating = true;
+                animationStart = null;
+
+                // Aktualizovat status
+                document.getElementById(
+                  "status"
+                ).textContent = `Střed otáčení: ${points[index].name}`;
+
+                // Vytvořit nebo aktualizovat vizuální marker
+                createPivotMarker(newPivot);
+              }
+            }
+          }
+        }
+      }
+
+      function updateCameraAnimation(timestamp) {
+        if (!isAnimating) return;
+
+        if (animationStart === null) {
+          animationStart = timestamp;
+        }
+
+        const elapsed = timestamp - animationStart;
+        const progress = Math.min(elapsed / animationDuration, 1);
+
+        // Easing function (ease-in-out)
+        const eased =
+          progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+        // Interpolace pozice kamery
+        camera.position.lerpVectors(startCameraPos, targetCameraPos, eased);
+        controls.target.lerpVectors(
+          startControlsTarget,
+          targetControlsTarget,
+          eased
+        );
+        controls.update();
+
+        if (progress >= 1) {
+          isAnimating = false;
+        }
+      }
+
+      function updatePivotMarkerFade(timestamp) {
+        if (!pivotMarker) return;
+
+        if (pivotMarkerFadeStart === null) {
+          pivotMarkerFadeStart = timestamp;
+        }
+
+        const elapsed = timestamp - pivotMarkerFadeStart;
+        const progress = Math.min(elapsed / pivotMarkerFadeDuration, 1);
+
+        // Aktualizovat fade progress v shaderu
+        if (pivotMarker.material.uniforms) {
+          pivotMarker.material.uniforms.fadeProgress.value = progress;
+        }
+
+        // Po dokončení animace odstranit marker
+        if (progress >= 1) {
+          scene.remove(pivotMarker);
+          pivotMarker = null;
+          pivotMarkerFadeStart = null;
+        }
+      }
+
+      function createPivotMarker(position) {
+        // Odstranit předchozí marker
+        if (pivotMarker) {
+          scene.remove(pivotMarker);
+        }
+
+        // Vytvořit nový marker s gradientní barvou
+        const geometry = new THREE.SphereGeometry(20, 32, 32);
+
+        // Vytvořit shader material pro gradientní efekt
+        const material = new THREE.ShaderMaterial({
+          transparent: true,
+          uniforms: {
+            fadeProgress: { value: 0.0 }
+          },
+          vertexShader: `
+            varying vec3 vNormal;
+            void main() {
+              vNormal = normalize(normalMatrix * normal);
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform float fadeProgress;
+            varying vec3 vNormal;
+            void main() {
+              // Gradient od oranžové ke žluté
+              vec3 color1 = vec3(1.0, 0.6, 0.0); // Oranžová
+              vec3 color2 = vec3(1.0, 1.0, 0.0); // Žlutá
+
+              // Gradient na základě normály (vrchol -> spodek)
+              float gradient = (vNormal.y + 1.0) * 0.5;
+              vec3 color = mix(color1, color2, gradient);
+
+              // Fade out efekt
+              float alpha = 0.8 * (1.0 - fadeProgress);
+
+              gl_FragColor = vec4(color, alpha);
+            }
+          `
+        });
+
+        pivotMarker = new THREE.Mesh(geometry, material);
+        pivotMarker.position.copy(position);
+        scene.add(pivotMarker);
+
+        // Spustit fade animaci
+        pivotMarkerFadeStart = null;
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function animate(timestamp) {
+        requestAnimationFrame(animate);
+
+        // Aktualizovat animaci přesunu kamery
+        updateCameraAnimation(timestamp);
+
+        // Aktualizovat fade animaci pivot markeru
+        updatePivotMarkerFade(timestamp);
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      init();
+
+    </script>
+  </body>
+</html>
