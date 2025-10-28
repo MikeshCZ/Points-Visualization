@@ -322,7 +322,7 @@
           const colors = [];
 
           csvData.forEach((row) => {
-            const y = parseFloat(row.p_z); // Výška
+            const y = parseFloat(row.p_y); // Výška
 
             // Barva bodů podle režimu
             const color = new THREE.Color();
@@ -486,8 +486,8 @@
         // Vytvořit osové kříže pro všechny body
         csvData.forEach((row) => {
           const x = parseFloat(row.p_x);
-          const y = parseFloat(row.p_z);
-          const z = -parseFloat(row.p_y);
+          const y = parseFloat(row.p_y);
+          const z = parseFloat(row.p_z);
 
           const position = new THREE.Vector3(x, y, z);
           const rotation = getRotationValues(row.r_x, row.r_y, row.r_z);
@@ -515,8 +515,8 @@
 
           const row = csvData[index];
           const x = parseFloat(row.p_x);
-          const y = parseFloat(row.p_z);
-          const z = -parseFloat(row.p_y);
+          const y = parseFloat(row.p_y);
+          const z = parseFloat(row.p_z);
 
           const position = new THREE.Vector3(x, y, z);
           const rotation = getRotationValues(row.r_x, row.r_y, row.r_z);
@@ -569,8 +569,8 @@
 
         csvData.forEach((row) => {
           const x = parseFloat(row.p_x);
-          const y = parseFloat(row.p_z); // Z jako výška (Y v Three.js)
-          const z = -parseFloat(row.p_y); // Y jako hloubka (záporné Z)
+          const y = parseFloat(row.p_y);
+          const z = parseFloat(row.p_z);
 
           positions.push(x, y, z);
 
@@ -665,9 +665,21 @@
             const index = intersect.index;
 
             if (index !== undefined && points[index]) {
+              const point = points[index];
+              const x = point.position.x.toFixed(2);
+              const y = point.position.y.toFixed(2);
+              const z = point.position.z.toFixed(2);
+
+              // Získat rotace z CSV dat
+              const row = csvData[index];
+              const rx = parseFloat(row.r_x).toFixed(2);
+              const ry = parseFloat(row.r_y).toFixed(2);
+              const rz = parseFloat(row.r_z).toFixed(2);
+              const angleUnit = useRadians ? "rad" : "°";
+
               document.getElementById(
                 "status"
-              ).textContent = `Bod: ${points[index].name}`;
+              ).textContent = `Bod: ${point.name} | [${x}, ${y}, ${z}, ${rx}${angleUnit}, ${ry}${angleUnit}, ${rz}${angleUnit}]`;
               document.body.style.cursor = "pointer";
 
               // Zobrazit osový kříž při hoveru (pouze když není zapnutý režim všech křížů)
